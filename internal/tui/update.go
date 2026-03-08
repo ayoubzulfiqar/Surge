@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
-	"github.com/skratchdot/open-golang/open"
 	"github.com/surge-downloader/surge/internal/clipboard"
 	"github.com/surge-downloader/surge/internal/config"
 	"github.com/surge-downloader/surge/internal/engine/events"
@@ -55,14 +56,24 @@ func shutdownCmd(service interface{ Shutdown() error }) tea.Cmd {
 	}
 }
 
-// openBrowser opens a URL in the default browser
-func openBrowser(url string) error {
-	return open.Start(url)
-}
-
-// openFile opens a file with the system's default application
-func openFile(path string) error {
-	return open.Start(path)
+// openWithSystem opens a file or URL with the system's default application
+func openWithSystem(path string) error {
+	var cmd *exec.Cmd
+	switch runtime.GOOS {
+	case "darwin":
+		cmd = exec.Command("open", path)
+	case "windows":
+		cmd = exec.Command("cmd", "/c", "start", "", path)
+	default: // linux and others
+		cmd = exec.Command("xdg-open", path)
+	}
+	err := cmd.Start()
+	if err == nil {
+		go func() {
+			_ = cmd.Wait()
+		}()
+	}
+	return err
 }
 
 // readURLsFromFile reads URLs from a file, accepting one-per-line or whitespace-separated URLs.
@@ -87,7 +98,14 @@ func readURLsFromFile(filepath string) ([]string, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if idx := strings.Index(line, "#"); idx >= 0 {
+		idx := -1
+		for i := 0; i < len(line); i++ {
+			if line[i] == '#' && i > 0 && (line[i-1] == ' ' || line[i-1] == '\t') {
+				idx = i
+				break
+			}
+		}
+		if idx > 0 {
 			line = strings.TrimSpace(line[:idx])
 		}
 		if line == "" {
@@ -142,6 +160,46 @@ func (m *RootModel) removeDownloadByID(id string) bool {
 		}
 	}
 	return false
+}
+
+func (m *RootModel) handleFilePickerSelection(path string) (tea.Model, tea.Cmd) {
+	if m.SettingsFileBrowsing {
+		m.Settings.General.DefaultDownloadDir = path
+		m.SettingsFileBrowsing = false
+		m.state = SettingsState
+		return m, nil
+	}
+	if m.ExtensionFileBrowsing {
+		m.inputs[2].SetValue(path)
+		m.ExtensionFileBrowsing = false
+		m.state = ExtensionConfirmationState
+		return m, nil
+	}
+	if m.catMgrFileBrowsing {
+		m.catMgrInputs[3].SetValue(path)
+		m.catMgrFileBrowsing = false
+		m.state = CategoryManagerState
+		return m, nil
+	}
+	m.inputs[2].SetValue(path)
+	m.state = InputState
+	return m, nil
+}
+
+func (m *RootModel) handleFilePickerGotoHome() tea.Cmd {
+	defaultDir := m.Settings.General.DefaultDownloadDir
+	if defaultDir == "" {
+		homeDir, _ := os.UserHomeDir()
+		defaultDir = filepath.Join(homeDir, "Downloads")
+	}
+	m.filepicker = newFilepicker(defaultDir)
+	return m.filepicker.Init()
+}
+
+func (m *RootModel) resetFilepickerToDirMode() {
+	m.filepicker.FileAllowed = false
+	m.filepicker.DirAllowed = true
+	m.filepicker.AllowedTypes = nil
 }
 
 // checkForDuplicate checks if a compatible download already exists
@@ -314,13 +372,10 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.addLogEntry(LogStyleError.Render(fmt.Sprintf("✖ Auto-resume failed for %s: %v", msg.id, msg.err)))
 			return m, nil
 		}
-		for _, d := range m.downloads {
-			if d.ID == msg.id {
-				d.paused = false
-				d.pausing = false
-				d.resuming = true
-				break
-			}
+		if d := m.FindDownloadByID(msg.id); d != nil {
+			d.paused = false
+			d.pausing = false
+			d.resuming = true
 		}
 		return m, nil
 
@@ -370,29 +425,26 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case events.DownloadStartedMsg:
 		found := false
-		for _, d := range m.downloads {
-			if d.ID == msg.DownloadID {
-				d.Filename = msg.Filename
-				d.FilenameLower = strings.ToLower(msg.Filename)
-				d.Total = msg.Total
-				d.Destination = msg.DestPath
-				d.StartTime = time.Now()
-				d.paused = false
-				d.pausing = false
-				// Keep resuming=true for resumed downloads until real transfer starts.
-				// Update progress bar
-				if d.Total > 0 {
-					d.progress.SetPercent(0)
-				}
-				if d.state == nil && msg.State != nil {
-					d.state = msg.State
-				}
-				if d.state != nil {
-					d.state.SetTotalSize(msg.Total) // Keep state updated for verification if needed
-				}
-				found = true
-				break
+		if d := m.FindDownloadByID(msg.DownloadID); d != nil {
+			d.Filename = msg.Filename
+			d.FilenameLower = strings.ToLower(msg.Filename)
+			d.Total = msg.Total
+			d.Destination = msg.DestPath
+			d.StartTime = time.Now()
+			d.paused = false
+			d.pausing = false
+			// Keep resuming=true for resumed downloads until real transfer starts.
+			// Update progress bar
+			if d.Total > 0 {
+				d.progress.SetPercent(0)
 			}
+			if d.state == nil && msg.State != nil {
+				d.state = msg.State
+			}
+			if d.state != nil {
+				d.state.SetTotalSize(msg.Total) // Keep state updated for verification if needed
+			}
+			found = true
 		}
 
 		if !found {
@@ -420,11 +472,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case events.DownloadCompleteMsg:
-		for _, d := range m.downloads {
-			if d.ID == msg.DownloadID {
-				if d.done {
-					break
-				}
+		if d := m.FindDownloadByID(msg.DownloadID); d != nil {
+			if !d.done {
 				d.Total = msg.Total
 				d.Downloaded = d.Total
 				d.Elapsed = msg.Elapsed
@@ -439,7 +488,6 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					speed = float64(d.Total) / msg.Elapsed.Seconds()
 				}
 				m.addLogEntry(LogStyleComplete.Render(fmt.Sprintf("✔ Done: %s (%.2f MB/s)", d.Filename, speed/float64(config.MB))))
-				break
 			}
 		}
 		m.UpdateListItems()
@@ -447,14 +495,11 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case events.DownloadErrorMsg:
 		found := false
-		for _, d := range m.downloads {
-			if d.ID == msg.DownloadID {
-				d.err = msg.Err
-				d.done = true
-				m.addLogEntry(LogStyleError.Render("✖ Error: " + d.Filename))
-				found = true
-				break
-			}
+		if d := m.FindDownloadByID(msg.DownloadID); d != nil {
+			d.err = msg.Err
+			d.done = true
+			m.addLogEntry(LogStyleError.Render("✖ Error: " + d.Filename))
+			found = true
 		}
 		if !found {
 			newDownload := NewDownloadModel(msg.DownloadID, "", msg.Filename, 0)
@@ -467,29 +512,23 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(cmds...)
 
 	case events.DownloadPausedMsg:
-		for _, d := range m.downloads {
-			if d.ID == msg.DownloadID {
-				d.paused = true
-				d.pausing = false
-				d.resuming = false
-				d.Downloaded = msg.Downloaded
-				d.Speed = 0
-				m.addLogEntry(LogStylePaused.Render("⏸ Paused: " + d.Filename))
-				break
-			}
+		if d := m.FindDownloadByID(msg.DownloadID); d != nil {
+			d.paused = true
+			d.pausing = false
+			d.resuming = false
+			d.Downloaded = msg.Downloaded
+			d.Speed = 0
+			m.addLogEntry(LogStylePaused.Render("⏸ Paused: " + d.Filename))
 		}
 		m.UpdateListItems()
 		return m, tea.Batch(cmds...)
 
 	case events.DownloadResumedMsg:
-		for _, d := range m.downloads {
-			if d.ID == msg.DownloadID {
-				d.paused = false
-				d.pausing = false
-				d.resuming = true
-				m.addLogEntry(LogStyleStarted.Render("▶ Resumed: " + d.Filename))
-				break
-			}
+		if d := m.FindDownloadByID(msg.DownloadID); d != nil {
+			d.paused = false
+			d.pausing = false
+			d.resuming = true
+			m.addLogEntry(LogStyleStarted.Render("▶ Resumed: " + d.Filename))
 		}
 		m.UpdateListItems()
 		return m, tea.Batch(cmds...)
@@ -497,11 +536,8 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case events.DownloadQueuedMsg:
 		// We optimistically added it, but if it came from elsewhere, handle it
 		found := false
-		for _, d := range m.downloads {
-			if d.ID == msg.DownloadID {
-				found = true
-				break
-			}
+		if d := m.FindDownloadByID(msg.DownloadID); d != nil {
+			found = true
 		}
 		if !found {
 			// Add placeholder
@@ -575,22 +611,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Check if a directory was selected
 			if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
-				// Check if we were browsing for settings
-				if m.SettingsFileBrowsing {
-					m.Settings.General.DefaultDownloadDir = path
-					m.SettingsFileBrowsing = false
-					m.state = SettingsState
-					return m, nil
-				}
-				if m.ExtensionFileBrowsing {
-					m.inputs[2].SetValue(path)
-					m.ExtensionFileBrowsing = false
-					m.state = ExtensionConfirmationState
-					return m, nil
-				}
-				m.inputs[2].SetValue(path)
-				m.state = InputState
-				return m, nil
+				return m.handleFilePickerSelection(path)
 			}
 
 			return m, cmd
@@ -606,9 +627,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				urls, err := readURLsFromFile(path)
 				if err != nil {
 					m.addLogEntry(LogStyleError.Render("✖ Failed to read batch file: " + err.Error()))
-					// Reset filepicker and return
-					m.filepicker.FileAllowed = false
-					m.filepicker.DirAllowed = true
+					m.resetFilepickerToDirMode()
 					m.state = DashboardState
 					return m, nil
 				}
@@ -618,8 +637,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.batchFilePath = path
 
 				// Reset filepicker to directory mode
-				m.filepicker.FileAllowed = false
-				m.filepicker.DirAllowed = true
+				m.resetFilepickerToDirMode()
 
 				m.state = BatchConfirmState
 				return m, nil
@@ -673,33 +691,25 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 			// Tab switching
-			if key.Matches(msg, m.keys.Dashboard.TabQueued) {
-				m.activeTab = TabQueued
+			switchTab := func(tab int) (tea.Model, tea.Cmd) {
+				m.activeTab = tab
 				m.ManualTabSwitch = true
 				m.updateListTitle()
 				m.UpdateListItems()
 				return m, nil
+			}
+
+			if key.Matches(msg, m.keys.Dashboard.TabQueued) {
+				return switchTab(TabQueued)
 			}
 			if key.Matches(msg, m.keys.Dashboard.TabActive) {
-				m.activeTab = TabActive
-				m.ManualTabSwitch = true
-				m.updateListTitle()
-				m.UpdateListItems()
-				return m, nil
+				return switchTab(TabActive)
 			}
 			if key.Matches(msg, m.keys.Dashboard.TabDone) {
-				m.activeTab = TabDone
-				m.ManualTabSwitch = true
-				m.updateListTitle()
-				m.UpdateListItems()
-				return m, nil
+				return switchTab(TabDone)
 			}
 			// Quit
-			if key.Matches(msg, m.keys.Dashboard.Quit) {
-				m.shuttingDown = true
-				return m, shutdownCmd(m.Service)
-			}
-			if key.Matches(msg, m.keys.Dashboard.ForceQuit) {
+			if key.Matches(msg, m.keys.Dashboard.Quit, m.keys.Dashboard.ForceQuit) {
 				m.shuttingDown = true
 				return m, shutdownCmd(m.Service)
 			}
@@ -721,15 +731,11 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.inputs[1].SetValue("") // Clear mirrors
 				m.inputs[1].Blur()
 
+				url := ""
 				if m.Settings.General.ClipboardMonitor {
-					if url := clipboard.ReadURL(); url != "" {
-						m.inputs[0].SetValue(url)
-					} else {
-						m.inputs[0].SetValue("")
-					}
-				} else {
-					m.inputs[0].SetValue("")
+					url = clipboard.ReadURL()
 				}
+				m.inputs[0].SetValue(url)
 				return m, nil
 			}
 
@@ -823,7 +829,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						if !d.done {
 							filePath = d.Destination + types.IncompleteSuffix
 						}
-						_ = openFile(filePath)
+						_ = openWithSystem(filePath)
 					}
 				}
 				return m, nil
@@ -1085,38 +1091,12 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// H key to jump to default download directory
 			if key.Matches(msg, m.keys.FilePicker.GotoHome) {
-				defaultDir := m.Settings.General.DefaultDownloadDir
-				if defaultDir == "" {
-					homeDir, _ := os.UserHomeDir()
-					defaultDir = filepath.Join(homeDir, "Downloads")
-				}
-				m.filepicker = newFilepicker(defaultDir)
-				return m, m.filepicker.Init()
+				return m, m.handleFilePickerGotoHome()
 			}
 
 			// '.' to select current directory
 			if key.Matches(msg, m.keys.FilePicker.UseDir) {
-				if m.SettingsFileBrowsing {
-					m.Settings.General.DefaultDownloadDir = m.filepicker.CurrentDirectory
-					m.SettingsFileBrowsing = false
-					m.state = SettingsState
-					return m, nil
-				}
-				if m.ExtensionFileBrowsing {
-					m.inputs[2].SetValue(m.filepicker.CurrentDirectory)
-					m.ExtensionFileBrowsing = false
-					m.state = ExtensionConfirmationState
-					return m, nil
-				}
-				if m.catMgrFileBrowsing {
-					m.catMgrInputs[3].SetValue(m.filepicker.CurrentDirectory)
-					m.catMgrFileBrowsing = false
-					m.state = CategoryManagerState
-					return m, nil
-				}
-				m.inputs[2].SetValue(m.filepicker.CurrentDirectory)
-				m.state = InputState
-				return m, nil
+				return m.handleFilePickerSelection(m.filepicker.CurrentDirectory)
 			}
 
 			// Pass key to filepicker
@@ -1125,28 +1105,13 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Check if a directory was selected
 			if didSelect, path := m.filepicker.DidSelectFile(msg); didSelect {
-				if m.SettingsFileBrowsing {
-					m.Settings.General.DefaultDownloadDir = path
-					m.SettingsFileBrowsing = false
-					m.state = SettingsState
-					return m, nil
-				}
-				if m.ExtensionFileBrowsing {
-					m.inputs[2].SetValue(path)
-					m.ExtensionFileBrowsing = false
-					m.state = ExtensionConfirmationState
-					return m, nil
-				}
 				if m.catMgrFileBrowsing {
 					m.catMgrInputs[3].SetValue(path)
 					m.catMgrFileBrowsing = false
 					m.state = CategoryManagerState
 					return m, nil
 				}
-				// Set the path input value and return to input state
-				m.inputs[2].SetValue(path)
-				m.state = InputState
-				return m, nil
+				return m.handleFilePickerSelection(path)
 			}
 
 			return m, cmd
@@ -1216,23 +1181,11 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.filepicker = newFilepicker(browseDir)
 				return m, m.filepicker.Init()
 			}
-			if key.Matches(msg, m.keys.Extension.Next) {
+			if key.Matches(msg, m.keys.Extension.Next) || key.Matches(msg, m.keys.Extension.Prev) {
 				if m.focusedInput == 2 {
 					m.focusedInput = 3
 				} else {
 					m.focusedInput = 2
-				}
-				for i := range m.inputs {
-					m.inputs[i].Blur()
-				}
-				m.inputs[m.focusedInput].Focus()
-				return m, nil
-			}
-			if key.Matches(msg, m.keys.Extension.Prev) {
-				if m.focusedInput == 3 {
-					m.focusedInput = 2
-				} else {
-					m.focusedInput = 3
 				}
 				for i := range m.inputs {
 					m.inputs[i].Blur()
@@ -1278,24 +1231,17 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case BatchFilePickerState:
 			if key.Matches(msg, m.keys.FilePicker.Cancel) {
 				// Reset filepicker to directory mode and return
-				m.filepicker.FileAllowed = false
-				m.filepicker.DirAllowed = true
-				m.filepicker.AllowedTypes = nil
+				m.resetFilepickerToDirMode()
 				m.state = DashboardState
 				return m, nil
 			}
 
 			// H key to jump to default download directory
 			if key.Matches(msg, m.keys.FilePicker.GotoHome) {
-				defaultDir := m.Settings.General.DefaultDownloadDir
-				if defaultDir == "" {
-					homeDir, _ := os.UserHomeDir()
-					defaultDir = filepath.Join(homeDir, "Downloads")
-				}
-				m.filepicker = newFilepicker(defaultDir)
+				cmd := m.handleFilePickerGotoHome()
 				m.filepicker.FileAllowed = true
 				m.filepicker.DirAllowed = false
-				return m, m.filepicker.Init()
+				return m, cmd
 			}
 
 			// Pass key to filepicker
@@ -1309,9 +1255,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if err != nil {
 					m.addLogEntry(LogStyleError.Render("✖ Failed to read batch file: " + err.Error()))
 					// Reset filepicker and return
-					m.filepicker.FileAllowed = false
-					m.filepicker.DirAllowed = true
-					m.filepicker.AllowedTypes = nil
+					m.resetFilepickerToDirMode()
 					m.state = DashboardState
 					return m, nil
 				}
@@ -1321,9 +1265,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.batchFilePath = path
 
 				// Reset filepicker to directory mode
-				m.filepicker.FileAllowed = false
-				m.filepicker.DirAllowed = true
-				m.filepicker.AllowedTypes = nil
+				m.resetFilepickerToDirMode()
 
 				m.state = BatchConfirmState
 				return m, nil
@@ -1407,33 +1349,15 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = DashboardState
 				return m, nil
 			}
-			if key.Matches(msg, m.keys.Settings.Tab1) {
-				if categoryCount > 0 {
-					m.SettingsActiveTab = 0
+			tabBindings := []key.Binding{m.keys.Settings.Tab1, m.keys.Settings.Tab2, m.keys.Settings.Tab3, m.keys.Settings.Tab4}
+			for i, binding := range tabBindings {
+				if key.Matches(msg, binding) {
+					if categoryCount > i {
+						m.SettingsActiveTab = i
+					}
+					m.SettingsSelectedRow = 0
+					return m, nil
 				}
-				m.SettingsSelectedRow = 0
-				return m, nil
-			}
-			if key.Matches(msg, m.keys.Settings.Tab2) {
-				if categoryCount > 1 {
-					m.SettingsActiveTab = 1
-				}
-				m.SettingsSelectedRow = 0
-				return m, nil
-			}
-			if key.Matches(msg, m.keys.Settings.Tab3) {
-				if categoryCount > 2 {
-					m.SettingsActiveTab = 2
-				}
-				m.SettingsSelectedRow = 0
-				return m, nil
-			}
-			if key.Matches(msg, m.keys.Settings.Tab4) {
-				if categoryCount > 3 {
-					m.SettingsActiveTab = 3
-				}
-				m.SettingsSelectedRow = 0
-				return m, nil
 			}
 
 			// Tab Navigation
@@ -1547,7 +1471,7 @@ func (m RootModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if key.Matches(msg, m.keys.Update.OpenGitHub) {
 				// Open the release page in browser
 				if m.UpdateInfo != nil && m.UpdateInfo.ReleaseURL != "" {
-					_ = openBrowser(m.UpdateInfo.ReleaseURL)
+					_ = openWithSystem(m.UpdateInfo.ReleaseURL)
 				}
 				m.state = DashboardState
 				m.UpdateInfo = nil

@@ -51,8 +51,6 @@ func SaveState(url string, destPath string, state *types.DownloadState) error {
 func SaveStateWithOptions(url string, destPath string, state *types.DownloadState, opts SaveStateOptions) error {
 	// Ensure ID is set
 	if state.ID == "" {
-		// Try to find existing ID using StateHash equivalent or just generate new
-		// Ideally ID should be passed in, but for backward compat we handle it
 		state.ID = uuid.New().String()
 	}
 
@@ -248,9 +246,6 @@ func parseStoredHash(storedHash string) (algo, value string) {
 
 // LoadState loads download state from SQLite
 func LoadState(url string, destPath string) (*types.DownloadState, error) {
-	// We need to find the download by URL and DestPath since we might not have ID yet (legacy caller)
-	// But ideally callers should use ID.
-	// For now, let's query by URL and DestPath.
 
 	db := getDBHelper()
 	if db == nil {
@@ -325,38 +320,18 @@ func LoadState(url string, destPath string) (*types.DownloadState, error) {
 }
 
 // DeleteState removes the state from SQLite
-func DeleteState(id string, url string, destPath string) error {
+func DeleteState(id string) error {
 	db := getDBHelper()
 	if db == nil {
 		return fmt.Errorf("database not initialized")
 	}
 
-	var result sql.Result
-	var err error
-
-	if id != "" {
-		result, err = db.Exec("DELETE FROM downloads WHERE id = ?", id)
-	} else {
-		// Fallback for legacy calls without ID
-		result, err = db.Exec("DELETE FROM downloads WHERE url = ? AND dest_path = ?", url, destPath)
+	if id == "" {
+		return fmt.Errorf("id cannot be empty")
 	}
 
-	if err != nil {
+	if err := removeDownloadAndTasks(id); err != nil {
 		return fmt.Errorf("failed to delete state: %w", err)
-	}
-
-	// Tasks are deleted via CASCADE or we strictly rely on download_id
-	// Since we defined CASCADE in schema, it should be fine.
-	// But 'tasks' table has foreign key constraint, assuming SQLite FKs are enabled.
-	// We should probably ensure FKs are enabled or manually delete tasks.
-	// For safety, let's manually delete if we didn't use CASCADE in creation or forgot to enable FK.
-	// actually, let's just trust our schema but also execute a cleanup just deeply in case.
-	// (Implementation detail: FK support needs `PRAGMA foreign_keys = ON`)
-
-	// Check rows affected
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
-		return nil // Already gone or didn't exist
 	}
 
 	return nil

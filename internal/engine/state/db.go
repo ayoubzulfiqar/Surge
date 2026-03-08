@@ -60,7 +60,12 @@ func initDB() error {
 		created_at INTEGER,
 		paused_at INTEGER,
 		completed_at INTEGER,
-		time_taken INTEGER
+		time_taken INTEGER,
+		mirrors TEXT,
+		chunk_bitmap BLOB,
+		actual_chunk_size INTEGER,
+		avg_speed REAL,
+		file_hash TEXT
 	);
 
 	CREATE TABLE IF NOT EXISTS tasks (
@@ -78,18 +83,53 @@ func initDB() error {
 		return fmt.Errorf("failed to create tables: %w", err)
 	}
 
-	// Migration: Add mirrors column if not exists
-	_, _ = db.Exec("ALTER TABLE downloads ADD COLUMN mirrors TEXT")
+	if err := ensureDownloadsSchema(); err != nil {
+		return fmt.Errorf("failed to ensure schema: %w", err)
+	}
 
-	// Migration: Add chunk bitmap columns
-	_, _ = db.Exec("ALTER TABLE downloads ADD COLUMN chunk_bitmap BLOB")
-	_, _ = db.Exec("ALTER TABLE downloads ADD COLUMN actual_chunk_size INTEGER")
+	return nil
+}
 
-	// Migration: Add avg_speed for completed download stats
-	_, _ = db.Exec("ALTER TABLE downloads ADD COLUMN avg_speed REAL")
+// ensureDownloadsSchema checks if required columns exist in the downloads table and adds them if missing.
+func ensureDownloadsSchema() error {
+	rows, err := db.Query("PRAGMA table_info(downloads)")
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
 
-	// Migration: Add file_hash for integrity verification of paused downloads
-	_, _ = db.Exec("ALTER TABLE downloads ADD COLUMN file_hash TEXT")
+	existingColumns := make(map[string]bool)
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull int
+		var dfltValue interface{}
+		var pk int
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dfltValue, &pk); err != nil {
+			return err
+		}
+		existingColumns[name] = true
+	}
+
+	columnsToAdd := []struct {
+		name string
+		def  string
+	}{
+		{"mirrors", "TEXT"},
+		{"chunk_bitmap", "BLOB"},
+		{"actual_chunk_size", "INTEGER"},
+		{"avg_speed", "REAL"},
+		{"file_hash", "TEXT"},
+	}
+
+	for _, col := range columnsToAdd {
+		if !existingColumns[col.name] {
+			alterQuery := fmt.Sprintf("ALTER TABLE downloads ADD COLUMN %s %s", col.name, col.def)
+			if _, err := db.Exec(alterQuery); err != nil {
+				log.Printf("Failed to add column %s: %v", col.name, err)
+			}
+		}
+	}
 
 	return nil
 }

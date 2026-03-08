@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -51,6 +50,7 @@ var (
 	GlobalService           core.DownloadService
 	serverProgram           *tea.Program
 	startupIntegrityMessage string
+	globalSettings          *config.Settings
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -68,12 +68,8 @@ var rootCmd = &cobra.Command{
 		GlobalProgressCh = make(chan any, 100)
 
 		// Initialize Global Worker Pool
-		// Load max downloads from settings
-		settings, err := config.LoadSettings()
-		if err != nil {
-			settings = config.DefaultSettings()
-		}
-		GlobalPool = download.NewWorkerPool(GlobalProgressCh, settings.Network.MaxConcurrentDownloads)
+		globalSettings = getSettings()
+		GlobalPool = download.NewWorkerPool(GlobalProgressCh, globalSettings.Network.MaxConcurrentDownloads)
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if hostTarget := resolveHostTarget(); hostTarget != "" {
@@ -135,11 +131,11 @@ var rootCmd = &cobra.Command{
 			urls = append(urls, args...)
 
 			if batchFile != "" {
-				fileUrls, err := readURLsFromFile(batchFile)
+				fileURLs, err := utils.ReadURLsFromFile(batchFile)
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "Error reading batch file: %v\n", err)
 				} else {
-					urls = append(urls, fileUrls...)
+					urls = append(urls, fileURLs...)
 				}
 			}
 
@@ -175,7 +171,7 @@ func startTUI(port int, exitWhenDone bool, noResume bool) {
 	// GlobalService and GlobalProgressCh are already initialized in PersistentPreRun or Run
 
 	m := tui.InitialRootModel(port, Version, GlobalService, noResume)
-	m.ServerHost = getServerBindHost()
+	m.ServerHost = serverBindHost
 	if m.ServerHost == "" {
 		m.ServerHost = "127.0.0.1"
 	}
@@ -250,9 +246,7 @@ func startTUI(port int, exitWhenDone bool, noResume bool) {
 	_ = executeGlobalShutdown("tui: program exited")
 }
 
-func getServerBindHost() string {
-	return "0.0.0.0"
-}
+const serverBindHost = "0.0.0.0"
 
 // StartHeadlessConsumer starts a goroutine to consume progress messages and log to stdout
 func StartHeadlessConsumer() {
@@ -270,57 +264,37 @@ func StartHeadlessConsumer() {
 		for msg := range stream {
 			switch m := msg.(type) {
 			case events.DownloadStartedMsg:
-				id := m.DownloadID
-				if len(id) > 8 {
-					id = id[:8]
-				}
-				fmt.Printf("Started: %s [%s]\n", m.Filename, id)
+				fmt.Printf("Started: %s [%s]\n", m.Filename, truncateID(m.DownloadID))
 			case events.DownloadCompleteMsg:
 				atomic.AddInt32(&activeDownloads, -1)
-				id := m.DownloadID
-				if len(id) > 8 {
-					id = id[:8]
-				}
-				fmt.Printf("Completed: %s [%s] (in %s)\n", m.Filename, id, m.Elapsed)
+				fmt.Printf("Completed: %s [%s] (in %s)\n", m.Filename, truncateID(m.DownloadID), m.Elapsed)
 			case events.DownloadErrorMsg:
 				atomic.AddInt32(&activeDownloads, -1)
-				id := m.DownloadID
-				if len(id) > 8 {
-					id = id[:8]
-				}
-				fmt.Printf("Error: %s [%s]: %v\n", m.Filename, id, m.Err)
+				fmt.Printf("Error: %s [%s]: %v\n", m.Filename, truncateID(m.DownloadID), m.Err)
 			case events.DownloadQueuedMsg:
-				id := m.DownloadID
-				if len(id) > 8 {
-					id = id[:8]
-				}
-				fmt.Printf("Queued: %s [%s]\n", m.Filename, id)
+				fmt.Printf("Queued: %s [%s]\n", m.Filename, truncateID(m.DownloadID))
 			case events.DownloadPausedMsg:
-				id := m.DownloadID
-				if len(id) > 8 {
-					id = id[:8]
-				}
-				fmt.Printf("Paused: %s [%s]\n", m.Filename, id)
+				fmt.Printf("Paused: %s [%s]\n", m.Filename, truncateID(m.DownloadID))
 			case events.DownloadResumedMsg:
-				id := m.DownloadID
-				if len(id) > 8 {
-					id = id[:8]
-				}
-				fmt.Printf("Resumed: %s [%s]\n", m.Filename, id)
+				fmt.Printf("Resumed: %s [%s]\n", m.Filename, truncateID(m.DownloadID))
 			case events.DownloadRemovedMsg:
-				id := m.DownloadID
-				if len(id) > 8 {
-					id = id[:8]
-				}
-				fmt.Printf("Removed: %s [%s]\n", m.Filename, id)
+				fmt.Printf("Removed: %s [%s]\n", m.Filename, truncateID(m.DownloadID))
 			}
 		}
 	}()
 }
 
+// truncateID shortens a UUID to its first 8 characters for display
+func truncateID(id string) string {
+	if len(id) > 8 {
+		return id[:8]
+	}
+	return id
+}
+
 // findAvailablePort tries ports starting from 'start' until one is available
 func findAvailablePort(start int) (int, net.Listener) {
-	bindHost := getServerBindHost()
+	bindHost := serverBindHost
 	for port := start; port < start+100; port++ {
 		ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", bindHost, port))
 		if err == nil {
@@ -331,7 +305,7 @@ func findAvailablePort(start int) (int, net.Listener) {
 }
 
 func bindServerListener(portFlag int) (int, net.Listener, error) {
-	bindHost := getServerBindHost()
+	bindHost := serverBindHost
 	if portFlag > 0 {
 		ln, err := net.Listen("tcp", fmt.Sprintf("%s:%d", bindHost, portFlag))
 		if err != nil {
@@ -438,33 +412,18 @@ func ensureAuthToken() string {
 		return token
 	}
 
-	legacyTokenFile := filepath.Join(config.GetSurgeDir(), "token")
-	if token, err := readTokenFromFile(legacyTokenFile); err == nil {
-		if err := writeTokenToFile(stateTokenFile, token); err != nil {
-			utils.Debug("Failed to mirror legacy token to state dir: %v", err)
-		}
-		return token
-	}
-
 	token := uuid.New().String()
 	if err := writeTokenToFile(stateTokenFile, token); err != nil {
 		utils.Debug("Failed to write token file in state dir: %v", err)
-		if errLegacy := writeTokenToFile(legacyTokenFile, token); errLegacy != nil {
-			utils.Debug("Failed to write token file in legacy config dir: %v", errLegacy)
-		}
 	}
 	return token
 }
 
 func persistAuthToken(token string) {
 	stateTokenFile := filepath.Join(config.GetStateDir(), "token")
-	legacyTokenFile := filepath.Join(config.GetSurgeDir(), "token")
 
 	if err := writeTokenToFile(stateTokenFile, token); err != nil {
 		utils.Debug("Failed to write token file in state dir: %v", err)
-	}
-	if err := writeTokenToFile(legacyTokenFile, token); err != nil {
-		utils.Debug("Failed to write token file in legacy config dir: %v", err)
 	}
 }
 
@@ -527,12 +486,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request, defaultOutputDir str
 		return
 	}
 
-	// Load settings once for use throughout the function
-	settings, err := config.LoadSettings()
-	if err != nil {
-		// Fallback to defaults if loading fails (though LoadSettings handles missing file)
-		settings = config.DefaultSettings()
-	}
+	settings := getSettings()
 
 	var req DownloadRequest
 	if err := decodeJSONBody(r, &req); err != nil {
@@ -563,41 +517,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request, defaultOutputDir str
 	}
 
 	// Prepare output path
-	outPath := req.Path
-	if req.RelativeToDefaultDir && req.Path != "" {
-		// Resolve relative to default download directory
-		baseDir := settings.General.DefaultDownloadDir
-		if baseDir == "" {
-			baseDir = defaultOutputDir
-		}
-		if baseDir == "" {
-			baseDir = "."
-		}
-		outPath = filepath.Join(baseDir, req.Path)
-		if err := os.MkdirAll(outPath, 0o755); err != nil {
-			http.Error(w, "Failed to create directory: "+err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-	} else if outPath == "" {
-		if defaultOutputDir != "" {
-			outPath = defaultOutputDir
-			if err := os.MkdirAll(outPath, 0o755); err != nil {
-				http.Error(w, "Failed to create output directory: "+err.Error(), http.StatusInternalServerError)
-				return
-			}
-		} else {
-			if settings.General.DefaultDownloadDir != "" {
-				outPath = settings.General.DefaultDownloadDir
-				if err := os.MkdirAll(outPath, 0o755); err != nil {
-					http.Error(w, "Failed to create output directory: "+err.Error(), http.StatusInternalServerError)
-					return
-				}
-			} else {
-				outPath = "."
-			}
-		}
-	}
+	outPath := resolveOutputDir(req.Path, req.RelativeToDefaultDir, defaultOutputDir, settings)
 
 	// Enforce absolute path to ensure resume works even if CWD changes
 	outPath = utils.EnsureAbsPath(outPath)
@@ -668,13 +588,11 @@ func handleDownload(w http.ResponseWriter, r *http.Request, defaultOutputDir str
 				return
 			} else {
 				// Headless mode check
-				if settings.General.ExtensionPrompt || (settings.General.WarnOnDuplicate && isDuplicate) {
-					writeJSONResponse(w, http.StatusConflict, map[string]string{
-						"status":  "error",
-						"message": "Download rejected: Duplicate download or approval required (Headless mode)",
-					})
-					return
-				}
+				writeJSONResponse(w, http.StatusConflict, map[string]string{
+					"status":  "error",
+					"message": "Download rejected: Duplicate download or approval required (Headless mode)",
+				})
+				return
 			}
 		}
 	}
@@ -726,10 +644,7 @@ func processDownloads(urls []string, outputDir string, port int) int {
 		return 0
 	}
 
-	settings, err := config.LoadSettings()
-	if err != nil {
-		settings = config.DefaultSettings()
-	}
+	settings := getSettings()
 
 	for _, arg := range urls {
 		// Validation
@@ -743,15 +658,7 @@ func processDownloads(urls []string, outputDir string, port int) int {
 		}
 
 		// Prepare output path
-		outPath := outputDir
-		if outPath == "" {
-			if settings.General.DefaultDownloadDir != "" {
-				outPath = settings.General.DefaultDownloadDir
-				_ = os.MkdirAll(outPath, 0o755)
-			} else {
-				outPath = "."
-			}
-		}
+		outPath := resolveOutputDir(outputDir, false, "", settings)
 		outPath = utils.EnsureAbsPath(outPath)
 
 		// Check for duplicates/extensions if we are in TUI mode (serverProgram != nil)
@@ -773,6 +680,32 @@ func processDownloads(urls []string, outputDir string, port int) int {
 		successCount++
 	}
 	return successCount
+}
+
+func resolveOutputDir(reqPath string, relativeToDefaultDir bool, defaultOutputDir string, settings *config.Settings) string {
+	outPath := reqPath
+
+	if relativeToDefaultDir && reqPath != "" {
+		baseDir := settings.General.DefaultDownloadDir
+		if baseDir == "" {
+			baseDir = defaultOutputDir
+		}
+		if baseDir == "" {
+			baseDir = "."
+		}
+		outPath = filepath.Join(baseDir, reqPath)
+	} else if outPath == "" {
+		if defaultOutputDir != "" {
+			outPath = defaultOutputDir
+		} else if settings.General.DefaultDownloadDir != "" {
+			outPath = settings.General.DefaultDownloadDir
+		} else {
+			outPath = "."
+		}
+	}
+
+	_ = os.MkdirAll(outPath, 0o755)
+	return outPath
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -808,10 +741,6 @@ func initializeGlobalState() error {
 	logsDir := config.GetLogsDir()
 	stateDBPath := filepath.Join(stateDir, "surge.db")
 
-	if err := migrateLegacyStateDB(stateDBPath); err != nil {
-		return fmt.Errorf("state DB migration failed: %w", err)
-	}
-
 	// Ensure directories exist
 	_ = os.MkdirAll(stateDir, 0o755)
 	_ = os.MkdirAll(logsDir, 0o755)
@@ -823,120 +752,24 @@ func initializeGlobalState() error {
 	utils.ConfigureDebug(logsDir)
 
 	// Clean up old logs
-	settings, err := config.LoadSettings()
-	var retention int
-	if err == nil {
-		retention = settings.General.LogRetentionCount
-	} else {
-		retention = config.DefaultSettings().General.LogRetentionCount
-	}
+	retention := getSettings().General.LogRetentionCount
 	utils.CleanupLogs(retention)
 	return nil
 }
 
-func migrateLegacyStateDB(stateDBPath string) error {
-	if stateDBPath == "" {
-		return nil
+func getSettings() *config.Settings {
+	if globalSettings != nil {
+		return globalSettings
 	}
-	if _, err := os.Stat(stateDBPath); err == nil {
-		return nil
-	}
-
-	legacyCandidates := []string{
-		filepath.Join(config.GetSurgeDir(), "state", "surge.db"),
-		filepath.Join(config.GetSurgeDir(), "surge.db"),
-	}
-
-	for _, legacyPath := range legacyCandidates {
-		if legacyPath == "" {
-			continue
-		}
-		if samePath(stateDBPath, legacyPath) {
-			continue
-		}
-		if _, err := os.Stat(legacyPath); err != nil {
-			continue
-		}
-
-		if err := os.MkdirAll(filepath.Dir(stateDBPath), 0o755); err != nil {
-			utils.Debug("Failed to create state dir for DB migration: %v", err)
-			return err
-		}
-
-		if err := moveFileWithFallback(legacyPath, stateDBPath); err != nil {
-			utils.Debug("Failed to migrate legacy DB from %s to %s: %v", legacyPath, stateDBPath, err)
-			continue
-		}
-
-		for _, suffix := range []string{"-wal", "-shm"} {
-			srcSidecar := legacyPath + suffix
-			dstSidecar := stateDBPath + suffix
-			if err := moveFileWithFallback(srcSidecar, dstSidecar); err != nil {
-				if os.IsNotExist(err) {
-					continue
-				}
-				utils.Debug("Failed to migrate legacy DB sidecar %s from %s to %s: %v", suffix, legacyPath, stateDBPath, err)
-				return err
-			}
-		}
-
-		utils.Debug("Migrated legacy state DB from %s to %s", legacyPath, stateDBPath)
-		return nil
-	}
-	return nil
-}
-
-func moveFileWithFallback(src, dst string) error {
-	if src == "" || dst == "" {
-		return fmt.Errorf("invalid migration path")
-	}
-
-	if err := os.Rename(src, dst); err == nil {
-		return nil
-	}
-
-	srcFile, err := os.Open(src)
+	settings, err := config.LoadSettings()
 	if err != nil {
-		return err
+		return config.DefaultSettings()
 	}
-	defer func() {
-		_ = srcFile.Close()
-	}()
-
-	srcInfo, err := srcFile.Stat()
-	if err != nil {
-		return err
-	}
-
-	dstFile, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, srcInfo.Mode().Perm())
-	if err != nil {
-		return err
-	}
-
-	if _, err := io.Copy(dstFile, srcFile); err != nil {
-		_ = dstFile.Close()
-		_ = os.Remove(dst)
-		return err
-	}
-	if err := dstFile.Close(); err != nil {
-		_ = os.Remove(dst)
-		return err
-	}
-
-	return os.Remove(src)
-}
-
-func samePath(a, b string) bool {
-	cleanA := filepath.Clean(a)
-	cleanB := filepath.Clean(b)
-	return cleanA == cleanB
+	return settings
 }
 
 func resumePausedDownloads() {
-	settings, err := config.LoadSettings()
-	if err != nil {
-		return // Can't check preference
-	}
+	settings := getSettings()
 
 	pausedEntries, err := state.LoadPausedDownloads()
 	if err != nil {

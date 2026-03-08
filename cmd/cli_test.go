@@ -224,7 +224,8 @@ func TestReadURLsFromFile_ParsesAndFilters(t *testing.T) {
 		"",
 		"   # comment line",
 		"https://example.com/a.zip",
-		"  https://example.com/b.zip  ",
+		"https://example.com/a.zip", // Duplicate
+		"  https://example.com/b.zip#fragment  ",
 		"   ",
 		"#another-comment",
 		"https://example.com/c.zip",
@@ -233,14 +234,14 @@ func TestReadURLsFromFile_ParsesAndFilters(t *testing.T) {
 		t.Fatalf("failed to write url file: %v", err)
 	}
 
-	urls, err := readURLsFromFile(urlFile)
+	urls, err := utils.ReadURLsFromFile(urlFile)
 	if err != nil {
 		t.Fatalf("readURLsFromFile returned error: %v", err)
 	}
 
 	want := []string{
 		"https://example.com/a.zip",
-		"https://example.com/b.zip",
+		"https://example.com/b.zip#fragment",
 		"https://example.com/c.zip",
 	}
 	if len(urls) != len(want) {
@@ -250,6 +251,16 @@ func TestReadURLsFromFile_ParsesAndFilters(t *testing.T) {
 		if urls[i] != want[i] {
 			t.Fatalf("url[%d] = %q, want %q", i, urls[i], want[i])
 		}
+	}
+
+	// Test empty / comment-only file
+	emptyFile := filepath.Join(tmpDir, "empty.txt")
+	if err := os.WriteFile(emptyFile, []byte("# just a comment\n\n  "), 0o644); err != nil {
+		t.Fatalf("failed to write empty url file: %v", err)
+	}
+	_, err = utils.ReadURLsFromFile(emptyFile)
+	if err == nil {
+		t.Fatalf("expected an error for empty/comment-only file, got nil")
 	}
 }
 
@@ -267,7 +278,7 @@ func TestReadURLsFromFile_WhitespaceAndInlineComments(t *testing.T) {
 		t.Fatalf("failed to write url file: %v", err)
 	}
 
-	urls, err := readURLsFromFile(urlFile)
+	urls, err := utils.ReadURLsFromFile(urlFile)
 	if err != nil {
 		t.Fatalf("readURLsFromFile returned error: %v", err)
 	}
@@ -298,7 +309,7 @@ func TestReadURLsFromFile_LongLine(t *testing.T) {
 		t.Fatalf("failed to write url file: %v", err)
 	}
 
-	urls, err := readURLsFromFile(urlFile)
+	urls, err := utils.ReadURLsFromFile(urlFile)
 	if err != nil {
 		t.Fatalf("readURLsFromFile returned error for long URL: %v", err)
 	}
@@ -311,7 +322,7 @@ func TestReadURLsFromFile_LongLine(t *testing.T) {
 }
 
 func TestReadURLsFromFile_MissingFile(t *testing.T) {
-	_, err := readURLsFromFile(filepath.Join(t.TempDir(), "missing.txt"))
+	_, err := utils.ReadURLsFromFile(filepath.Join(t.TempDir(), "missing.txt"))
 	if err == nil {
 		t.Fatal("expected an error for missing file")
 	}

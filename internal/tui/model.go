@@ -18,6 +18,7 @@ import (
 	"github.com/surge-downloader/surge/internal/config"
 	"github.com/surge-downloader/surge/internal/core"
 	"github.com/surge-downloader/surge/internal/engine/types"
+	"github.com/surge-downloader/surge/internal/tui/colors"
 	"github.com/surge-downloader/surge/internal/version"
 )
 
@@ -144,13 +145,13 @@ type RootModel struct {
 	urlUpdateInput textinput.Model // Text input for updating URL
 
 	// Category manager
-	categoryFilter  string             // Dashboard filter ("" = all)
-	catMgrCursor    int                // Selected category index
-	catMgrEditing   bool               // Whether editing a category
-	catMgrEditField int                // 0=Name, 1=Description, 2=Pattern, 3=Path
-	catMgrInputs    [4]textinput.Model // Inputs for Name, Description, Pattern, Path
-	catMgrIsNew     bool               // Whether adding a new category
-	catMgrFileBrowsing bool            // Whether browsing for a category path
+	categoryFilter     string             // Dashboard filter ("" = all)
+	catMgrCursor       int                // Selected category index
+	catMgrEditing      bool               // Whether editing a category
+	catMgrEditField    int                // 0=Name, 1=Description, 2=Pattern, 3=Path
+	catMgrInputs       [4]textinput.Model // Inputs for Name, Description, Pattern, Path
+	catMgrIsNew        bool               // Whether adding a new category
+	catMgrFileBrowsing bool               // Whether browsing for a category path
 
 	// Keybindings
 	keys KeyMap
@@ -297,8 +298,8 @@ func InitialRootModel(serverPort int, currentVersion string, service core.Downlo
 
 	// Initialize help
 	helpModel := help.New()
-	helpModel.Styles.ShortKey = lipgloss.NewStyle().Foreground(ColorLightGray)
-	helpModel.Styles.ShortDesc = lipgloss.NewStyle().Foreground(ColorGray)
+	helpModel.Styles.ShortKey = lipgloss.NewStyle().Foreground(colors.LightGray)
+	helpModel.Styles.ShortDesc = lipgloss.NewStyle().Foreground(colors.Gray)
 
 	// Initialize settings input for editing
 	settingsInput := textinput.New()
@@ -424,6 +425,16 @@ type resumeResultMsg struct {
 	err error
 }
 
+// FindDownloadByID finds a download by its ID
+func (m *RootModel) FindDownloadByID(id string) *DownloadModel {
+	for _, d := range m.downloads {
+		if d.ID == id {
+			return d
+		}
+	}
+	return nil
+}
+
 // Helper to get downloads for the current tab
 func (m RootModel) getFilteredDownloads() []*DownloadModel {
 	var filtered []*DownloadModel
@@ -455,7 +466,7 @@ func (m RootModel) getFilteredDownloads() []*DownloadModel {
 
 		// Apply search filter if query is set
 		if m.searchQuery != "" {
-			if !strings.Contains(strings.ToLower(d.FilenameLower), searchLower) {
+			if !strings.Contains(d.FilenameLower, searchLower) {
 				continue
 			}
 		}
