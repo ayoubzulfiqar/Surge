@@ -29,20 +29,61 @@ func readActivePort() int {
 	return port
 }
 
-// ParseURLArg parses a command line argument that might contain comma-separated mirrors
-// Returns the primary URL and a list of all mirrors (including the primary)
+// ParseURLArg parses a command line argument that might contain comma-separated mirrors.
+// Only treats a comma part as a mirror separator when at least one subsequent part
+// looks like a real URL (starts with http://, https://, or ftp://).  This prevents
+// commas that are legitimately embedded in URL paths (e.g. archive.org format lists)
+// from being misinterpreted as mirror boundaries.
+// Returns the primary URL and a list of all mirrors (including the primary).
 func ParseURLArg(arg string) (string, []string) {
 	parts := strings.Split(arg, ",")
-	var urls []string
-	for _, p := range parts {
-		if trimmed := strings.TrimSpace(p); trimmed != "" {
-			urls = append(urls, trimmed)
+
+	// First pass: check if there is any part (other than the first) that looks like a URL.
+	// If not, the entire arg is one URL with commas in it.
+	hasRealMirror := false
+	for _, p := range parts[1:] {
+		if trimmed := strings.TrimSpace(p); trimmed != "" && isURLLike(trimmed) {
+			hasRealMirror = true
+			break
 		}
 	}
-	if len(urls) == 0 {
+	if !hasRealMirror {
+		trimmed := strings.TrimSpace(arg)
+		if trimmed == "" {
+			return "", nil
+		}
+		return trimmed, []string{trimmed}
+	}
+
+	// We do have at least one real mirror URL.  Split normally but drop fragments
+	// that are merely comma-separated path noise (not URL-like).
+	var urls []string
+	for _, p := range parts {
+		trimmed := strings.TrimSpace(p)
+		if trimmed == "" {
+			continue
+		}
+		if len(urls) == 0 {
+			urls = append(urls, trimmed)
+		} else if isURLLike(trimmed) {
+			urls = append(urls, trimmed)
+		}
+		// otherwise: discard non-URL fragment (e.g. "ITEM%20TILE")
+	}
+	if len(urls) > 0 {
+		return urls[0], urls
+	}
+	trimmed := strings.TrimSpace(arg)
+	if trimmed == "" {
 		return "", nil
 	}
-	return urls[0], urls
+	return trimmed, []string{trimmed}
+}
+
+// isURLLike returns true when s appears to begin with a URI scheme (http, https, ftp).
+func isURLLike(s string) bool {
+	lowered := strings.ToLower(s)
+	return strings.HasPrefix(lowered, "http://") || strings.HasPrefix(lowered, "https://") || strings.HasPrefix(lowered, "ftp://")
 }
 
 func resolveLocalToken() string {

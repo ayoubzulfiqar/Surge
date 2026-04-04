@@ -115,6 +115,18 @@ func TestParseURLArg_Unit(t *testing.T) {
 			expectedURL:     "",
 			expectedMirrors: nil,
 		},
+		{
+			name:            "URL with commas in path (archive.org format list)",
+			input:           "https://archive.org/compress/live-image-bookworm-mate-20260403-amd64.hybrid/formats=PNG,ITEM%20TILE,LOG",
+			expectedURL:     "https://archive.org/compress/live-image-bookworm-mate-20260403-amd64.hybrid/formats=PNG,ITEM%20TILE,LOG",
+			expectedMirrors: []string{"https://archive.org/compress/live-image-bookworm-mate-20260403-amd64.hybrid/formats=PNG,ITEM%20TILE,LOG"},
+		},
+		{
+			name:            "URL with comma-continuation followed by real mirror",
+			input:           "https://url.com/path-part1,path-part2,https://mirror.com/file",
+			expectedURL:     "https://url.com/path-part1",
+			expectedMirrors: []string{"https://url.com/path-part1", "https://mirror.com/file"},
+		},
 	}
 
 	for _, tt := range tests {
