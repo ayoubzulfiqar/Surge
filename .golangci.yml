@@ -27,11 +27,10 @@ linters:
     - errorlint
     - nilerr
     - gocritic
-
-linters-settings:
-  govet:
-    enable:
-      - shadow
-      - fieldalignment
-  unparam:
-    check-exported: true
+  settings:
+    govet:
+      enable:
+        - shadow
+        - fieldalignment
+    unparam:
+      check-exported: true
