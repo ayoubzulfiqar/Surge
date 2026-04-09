@@ -55,7 +55,7 @@ func TestMockServer_RangeRequest(t *testing.T) {
 
 	// Range request for first 1024 bytes
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", server.URL(), nil) // nolint:noctx
+	req, _ := http.NewRequest(http.MethodGet, server.URL(), nil) // nolint:noctx
 	req.Header.Set("Range", "bytes=0-1023")
 
 	resp, err := client.Do(req)
@@ -99,7 +99,7 @@ func TestMockServer_MultipleRangeRequests(t *testing.T) {
 			end = fileSize - 1
 		}
 
-		req, _ := http.NewRequest("GET", server.URL(), nil) // nolint:noctx
+		req, _ := http.NewRequest(http.MethodGet, server.URL(), nil) // nolint:noctx
 		req.Header.Set("Range", "bytes="+formatRange(offset, end))
 
 		resp, err := client.Do(req)
@@ -137,7 +137,7 @@ func TestMockServer_HeadRequest(t *testing.T) {
 	defer server.Close()
 
 	client := &http.Client{}
-	req, _ := http.NewRequest("HEAD", server.URL(), nil) // nolint:noctx
+	req, _ := http.NewRequest(http.MethodHead, server.URL(), nil) // nolint:noctx
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -167,7 +167,7 @@ func TestMockServer_NoRangeSupport(t *testing.T) {
 	defer server.Close()
 
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", server.URL(), nil) // nolint:noctx
+	req, _ := http.NewRequest(http.MethodGet, server.URL(), nil) // nolint:noctx
 	req.Header.Set("Range", "bytes=0-511")
 
 	resp, err := client.Do(req)
@@ -268,7 +268,7 @@ func TestStreamingMockServer_LargeFile(t *testing.T) {
 
 	// Just request a small range to verify it works
 	client := &http.Client{}
-	req, _ := http.NewRequest("GET", server.URL(), nil) // nolint:noctx
+	req, _ := http.NewRequest(http.MethodGet, server.URL(), nil) // nolint:noctx
 	req.Header.Set("Range", "bytes=0-1023")
 
 	resp, err := client.Do(req)

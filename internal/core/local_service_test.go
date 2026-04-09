@@ -473,7 +473,7 @@ func TestLocalDownloadService_BatchProgress(t *testing.T) {
 	// Start a local test server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// 1. Probe request (HEAD or GET with Range: bytes=0-0)
-		if r.Method == "HEAD" || r.Header.Get("Range") == "bytes=0-0" {
+		if r.Method == http.MethodHead || r.Header.Get("Range") == "bytes=0-0" {
 			w.Header().Set("Content-Length", "1000")
 			w.Header().Set("Accept-Ranges", "bytes")
 			w.WriteHeader(http.StatusOK)

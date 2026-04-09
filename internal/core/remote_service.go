@@ -284,7 +284,7 @@ func (s *RemoteDownloadService) streamWithReconnect(ctx context.Context, ch chan
 }
 
 func (s *RemoteDownloadService) connectSSE(ctx context.Context, ch chan interface{}) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", s.BaseURL+"/events", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.BaseURL+"/events", nil)
 	if err != nil {
 		return err
 	}
@@ -300,7 +300,7 @@ func (s *RemoteDownloadService) connectSSE(ctx context.Context, ch chan interfac
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("failed to connect to event stream: %s", resp.Status)
 	}
 

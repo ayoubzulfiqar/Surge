@@ -102,7 +102,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Private-Network", "true")
 
 		// Handle preflight requests
-		if r.Method == "OPTIONS" {
+		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
@@ -120,7 +120,7 @@ func authMiddleware(token string, next http.Handler) http.Handler {
 		}
 
 		// Allow OPTIONS for CORS preflight
-		if r.Method == "OPTIONS" {
+		if r.Method == http.MethodOptions {
 			next.ServeHTTP(w, r)
 			return
 		}
