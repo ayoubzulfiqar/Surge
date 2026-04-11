@@ -283,6 +283,13 @@ func (d *ConcurrentDownloader) downloadTask(ctx context.Context, rawurl string, 
 		for readSoFar < int(readSize) {
 			n, err := resp.Body.Read(buf[readSoFar:readSize])
 			if n > 0 {
+				// Apply per-task rate limit
+				if d.State != nil && d.State.Limiter != nil {
+					_ = d.State.Limiter.WaitN(ctx, n)
+				}
+				// Apply global rate limit
+				_ = utils.GlobalRateLimiter.WaitN(ctx, n)
+
 				readSoFar += n
 				// CONTINUOUS HEALTH KEEPALIVE:
 				// Update LastActivity directly off the TCP socket instead of waiting for the buffer
