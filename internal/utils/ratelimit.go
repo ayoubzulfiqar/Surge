@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"golang.org/x/time/rate"
@@ -101,7 +102,7 @@ func (tb *TokenBucket) WaitN(ctx context.Context, n int) error {
 
 			// rate.Limiter may return a non-wrapped error if the deadline is too soon.
 			// Map it to standard context errors for compatibility.
-			if err == context.DeadlineExceeded || err == context.Canceled {
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
 				return err
 			}
 			if ctxErr := ctx.Err(); ctxErr != nil {
