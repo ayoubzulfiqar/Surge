@@ -268,7 +268,7 @@ func newProgressReader(ctx context.Context, reader io.Reader, state *types.Progr
 
 func (w *progressReader) Read(p []byte) (int, error) {
 	n, err := w.reader.Read(p)
-	
+
 	if n > 0 {
 		if w.state != nil && w.state.Limiter != nil {
 			if limiterErr := w.state.Limiter.WaitN(w.ctx, n); limiterErr != nil {

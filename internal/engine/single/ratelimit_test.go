@@ -66,7 +66,7 @@ func TestSingleDownloader_PerTaskRateLimit(t *testing.T) {
 	state := types.NewProgressState("ratelimit-single-task", fileSize)
 	// Apply per-task rate limit of 64KB/s
 	state.Limiter = utils.NewTokenBucket(64 * 1024)
-	
+
 	runtime := &types.RuntimeConfig{}
 
 	downloader := NewSingleDownloader("ratelimit-task-id", nil, state, runtime)

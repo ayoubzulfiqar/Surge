@@ -168,7 +168,7 @@ func (m *LifecycleManager) ApplySettings(s *config.Settings) {
 	m.settings = s
 	m.settingsRefreshedAt = time.Now()
 	m.settingsMu.Unlock()
-	
+
 	// Dynamically update the global rate limit
 	utils.GlobalRateLimiter.SetRate(s.Network.GlobalRateLimit * 1024)
 }
