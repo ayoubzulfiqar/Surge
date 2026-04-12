@@ -1,0 +1,36 @@
+# .golangci.yml
+version: "2"
+
+run:
+  tests: true
+
+linters:
+  disable-all: true
+  enable:
+    # correctness
+    - staticcheck
+    - govet
+    - errcheck
+    - unused
+    - ineffassign
+    - makezero
+    - nilerr
+    - errorlint
+    - contextcheck
+
+    # performance
+    - prealloc
+    - perfsprint
+    - usestdlibvars
+
+    # resource safety
+    - bodyclose
+    - noctx
+    - sqlclosecheck
+    - rowserrcheck
+    - gosec
+
+    # style / quality
+    - gocritic
+    - revive
+    - goconst
