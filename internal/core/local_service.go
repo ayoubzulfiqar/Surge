@@ -40,6 +40,9 @@ func (s *LocalDownloadService) ReloadSettings() error {
 	s.settings = settings
 	s.settingsMu.Unlock()
 
+	// Update global rate limiter
+	utils.GlobalRateLimiter.SetRate(settings.Network.GlobalRateLimit * 1024)
+
 	// Update active per-task limiters
 	if s.Pool != nil {
 		rate := settings.Network.PerTaskRateLimit * 1024

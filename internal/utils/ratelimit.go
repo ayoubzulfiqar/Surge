@@ -81,17 +81,24 @@ func (tb *TokenBucket) WaitN(ctx context.Context, n int) error {
 
 	// Wait handles context cancellation naturally
 	// Loop over burst chunks to avoid WaitN error if n > burst
-	burst := l.Burst()
-	if burst <= 0 {
-		return nil
-	}
-
 	for n > 0 {
+		burst := l.Burst()
+		if burst <= 0 {
+			return nil
+		}
+
 		req := n
 		if req > burst {
 			req = burst
 		}
+
 		if err := l.WaitN(ctx, req); err != nil {
+			// If the burst was reduced concurrently, req might be larger than the new burst.
+			// In that case, WaitN fails instantaneously. We should retry with the new burst.
+			if req > l.Burst() {
+				continue
+			}
+
 			// rate.Limiter may return a non-wrapped error if the deadline is too soon.
 			// Map it to standard context errors for compatibility.
 			if err.Error() != "" && (err == context.DeadlineExceeded || err == context.Canceled) {
