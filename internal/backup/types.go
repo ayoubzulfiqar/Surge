@@ -108,5 +108,5 @@ type ImportResult struct {
 	Preview      *ImportPreview `json:"preview"`
 	Imported     int            `json:"imported"`
 	SettingsSaved bool          `json:"settings_saved"`
+	LogsRestored int            `json:"logs_restored"`
 }
-

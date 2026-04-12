@@ -232,6 +232,11 @@ func ApplyImport(ctx context.Context, r io.Reader, opts ImportOptions, controlle
 		settingsSaved = true
 	}
 
+	logsRestored, err := restoreLogFiles(opened.Reader, manifest, opts.Replace)
+	if err != nil {
+		return nil, err
+	}
+
 	imported := 0
 	for _, item := range plan {
 		if item.Skip {
@@ -270,7 +275,7 @@ func ApplyImport(ctx context.Context, r io.Reader, opts ImportOptions, controlle
 		}
 
 		if item.UsePartial && record.Resumable != nil {
-			if err := restorePartialFile(opened.Reader, record.Resumable.PartialFile, item.FinalPath+types.IncompleteSuffix); err != nil {
+			if err := restorePartialFile(opened.Reader, record.Resumable.PartialFile, item.FinalPath+types.IncompleteSuffix, rootDir); err != nil {
 				return nil, err
 			}
 
@@ -312,6 +317,7 @@ func ApplyImport(ctx context.Context, r io.Reader, opts ImportOptions, controlle
 		Preview:       preview,
 		Imported:      imported,
 		SettingsSaved: settingsSaved,
+		LogsRestored:  logsRestored,
 	}, nil
 }
 
@@ -777,15 +783,121 @@ func fileSHA256(path string) (string, int64, error) {
 	return hex.EncodeToString(h.Sum(nil)), size, nil
 }
 
-func restorePartialFile(reader *zip.Reader, bundlePath, destPath string) error {
+func normalizeAllowedRoot(root string) (string, error) {
+	root = utils.EnsureAbsPath(strings.TrimSpace(root))
+	if root == "" {
+		if wd, err := filepath.Abs("."); err == nil {
+			root = wd
+		}
+	}
+	if strings.TrimSpace(root) == "" {
+		return "", fmt.Errorf("invalid allowed root")
+	}
+	cleanRoot, err := filepath.Abs(filepath.Clean(root))
+	if err != nil {
+		return "", err
+	}
+	return cleanRoot, nil
+}
+
+func resolveRestoreDestination(destPath, allowedRoot string) (string, error) {
+	finalDest := filepath.Clean(strings.TrimSpace(destPath))
+	if finalDest == "" || finalDest == "." {
+		return "", fmt.Errorf("invalid destination path")
+	}
+
+	cleanDest, err := filepath.Abs(finalDest)
+	if err != nil {
+		return "", err
+	}
+	cleanRoot, err := normalizeAllowedRoot(allowedRoot)
+	if err != nil {
+		return "", err
+	}
+
+	rel, err := filepath.Rel(cleanRoot, cleanDest)
+	if err != nil {
+		return "", err
+	}
+	if rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", fmt.Errorf("refusing to write outside allowed root")
+	}
+
+	return cleanDest, nil
+}
+
+func restoreBundleFile(reader *zip.Reader, bundlePath, destPath, allowedRoot string) error {
 	data, err := readZipEntry(reader, bundlePath)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+	finalDest, err := resolveRestoreDestination(destPath, allowedRoot)
+	if err != nil {
 		return err
 	}
-	return os.WriteFile(destPath, data, 0o644)
+	if err := os.MkdirAll(filepath.Dir(finalDest), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(finalDest, data, 0o644)
+}
+
+func restorePartialFile(reader *zip.Reader, bundlePath, destPath, allowedRoot string) error {
+	return restoreBundleFile(reader, bundlePath, destPath, allowedRoot)
+}
+
+func restoreLogFiles(reader *zip.Reader, manifest *Manifest, replace bool) (int, error) {
+	logPaths := manifestLogPaths(manifest)
+	if len(logPaths) == 0 {
+		return 0, nil
+	}
+
+	logDir := config.GetLogsDir()
+	if err := os.MkdirAll(logDir, 0o755); err != nil {
+		return 0, err
+	}
+	if replace {
+		if err := clearLogFiles(); err != nil {
+			return 0, err
+		}
+	}
+
+	restored := 0
+	for _, bundlePath := range logPaths {
+		filename := filepath.Base(filepath.FromSlash(bundlePath))
+		if filename == "." || filename == "" {
+			continue
+		}
+
+		destName := filename
+		if !replace {
+			destName = processing.GetUniqueFilename(logDir, filename, nil)
+			if destName == "" {
+				return restored, fmt.Errorf("could not determine a unique log filename for %s", filename)
+			}
+		}
+
+		if err := restoreBundleFile(reader, bundlePath, filepath.Join(logDir, destName), logDir); err != nil {
+			return restored, err
+		}
+		restored++
+	}
+
+	return restored, nil
+}
+
+func manifestLogPaths(manifest *Manifest) []string {
+	if manifest == nil {
+		return nil
+	}
+
+	var paths []string
+	for _, file := range manifest.Files {
+		path := filepath.ToSlash(strings.TrimSpace(file.Path))
+		if strings.HasPrefix(path, "logs/") {
+			paths = append(paths, path)
+		}
+	}
+	return paths
 }
 
 func clearExistingState() error {
@@ -810,6 +922,25 @@ func clearExistingState() error {
 		}
 		return nil
 	})
+}
+
+func clearLogFiles() error {
+	entries, err := os.ReadDir(config.GetLogsDir())
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if err := os.Remove(filepath.Join(config.GetLogsDir(), entry.Name())); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 func withTransaction(db *sql.DB, fn func(*sql.Tx) error) error {

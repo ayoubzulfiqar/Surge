@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"archive/zip"
 	"bytes"
 	"os"
 	"path/filepath"
@@ -18,6 +19,7 @@ func setupBackupEnv(t *testing.T) string {
 	root := t.TempDir()
 	t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
 	t.Setenv("XDG_STATE_HOME", filepath.Join(root, "state"))
+	t.Setenv("APPDATA", filepath.Join(root, "config"))
 
 	if err := config.EnsureDirs(); err != nil {
 		t.Fatalf("EnsureDirs failed: %v", err)
@@ -127,6 +129,56 @@ func TestApplyImport_WithoutPartialsDowngradesPausedDownloads(t *testing.T) {
 	}
 }
 
+func TestPreviewImport_UsesImportOptions(t *testing.T) {
+	root := setupBackupEnv(t)
+	sourceRoot := filepath.Join(root, "source-downloads")
+	url, _ := seedPausedDownload(t, sourceRoot)
+
+	var buf bytes.Buffer
+	if _, err := Export(t.Context(), &buf, ExportOptions{}, nil); err != nil {
+		t.Fatalf("Export failed: %v", err)
+	}
+
+	importRoot := filepath.Join(root, "imported")
+	if err := state.AddToMasterList(types.DownloadEntry{
+		ID:       "existing-download",
+		URL:      url,
+		URLHash:  state.URLHash(url),
+		DestPath: filepath.Join(importRoot, "nested", "video.bin"),
+		Filename: "video.bin",
+		Status:   "queued",
+	}); err != nil {
+		t.Fatalf("AddToMasterList failed: %v", err)
+	}
+
+	previewMerge, err := PreviewImport(t.Context(), bytes.NewReader(buf.Bytes()), ImportOptions{
+		RootDir: importRoot,
+	})
+	if err != nil {
+		t.Fatalf("PreviewImport merge failed: %v", err)
+	}
+	if filepath.Clean(previewMerge.RootDir) != filepath.Clean(importRoot) {
+		t.Fatalf("merge root=%q, want %q", previewMerge.RootDir, importRoot)
+	}
+	if previewMerge.DuplicatesSkipped != 1 {
+		t.Fatalf("merge duplicates=%d, want 1", previewMerge.DuplicatesSkipped)
+	}
+
+	previewReplace, err := PreviewImport(t.Context(), bytes.NewReader(buf.Bytes()), ImportOptions{
+		RootDir: importRoot,
+		Replace: true,
+	})
+	if err != nil {
+		t.Fatalf("PreviewImport replace failed: %v", err)
+	}
+	if previewReplace.DuplicatesSkipped != 0 {
+		t.Fatalf("replace duplicates=%d, want 0", previewReplace.DuplicatesSkipped)
+	}
+	if previewReplace.ImportsByStatus["queued"] != 1 {
+		t.Fatalf("replace queued imports=%d, want 1", previewReplace.ImportsByStatus["queued"])
+	}
+}
+
 func TestApplyImport_WithPartialsRestoresPausedState(t *testing.T) {
 	root := setupBackupEnv(t)
 	sourceRoot := filepath.Join(root, "source-downloads")
@@ -170,5 +222,85 @@ func TestApplyImport_WithPartialsRestoresPausedState(t *testing.T) {
 	}
 	if !testutil.FileExists(wantDest + types.IncompleteSuffix) {
 		t.Fatalf("expected restored partial file %s", wantDest+types.IncompleteSuffix)
+	}
+}
+
+func TestApplyImport_WithLogsRestoresLogFiles(t *testing.T) {
+	setupBackupEnv(t)
+
+	logDir := config.GetLogsDir()
+	originalOne := []byte("first log line\n")
+	originalTwo := []byte("second log line\n")
+	if err := os.WriteFile(filepath.Join(logDir, "session-1.log"), originalOne, 0o644); err != nil {
+		t.Fatalf("WriteFile session-1 failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(logDir, "session-2.log"), originalTwo, 0o644); err != nil {
+		t.Fatalf("WriteFile session-2 failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if _, err := Export(t.Context(), &buf, ExportOptions{IncludeLogs: true}, nil); err != nil {
+		t.Fatalf("Export failed: %v", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(logDir, "session-1.log"), []byte("stale"), 0o644); err != nil {
+		t.Fatalf("WriteFile stale session-1 failed: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(logDir, "stale.log"), []byte("remove me"), 0o644); err != nil {
+		t.Fatalf("WriteFile stale log failed: %v", err)
+	}
+
+	result, err := ApplyImport(t.Context(), bytes.NewReader(buf.Bytes()), ImportOptions{Replace: true}, nil)
+	if err != nil {
+		t.Fatalf("ApplyImport failed: %v", err)
+	}
+	if result.LogsRestored != 2 {
+		t.Fatalf("logs restored=%d, want 2", result.LogsRestored)
+	}
+
+	gotOne, err := os.ReadFile(filepath.Join(logDir, "session-1.log"))
+	if err != nil {
+		t.Fatalf("ReadFile session-1 failed: %v", err)
+	}
+	if !bytes.Equal(gotOne, originalOne) {
+		t.Fatalf("session-1 content=%q, want %q", string(gotOne), string(originalOne))
+	}
+
+	gotTwo, err := os.ReadFile(filepath.Join(logDir, "session-2.log"))
+	if err != nil {
+		t.Fatalf("ReadFile session-2 failed: %v", err)
+	}
+	if !bytes.Equal(gotTwo, originalTwo) {
+		t.Fatalf("session-2 content=%q, want %q", string(gotTwo), string(originalTwo))
+	}
+
+	if _, err := os.Stat(filepath.Join(logDir, "stale.log")); !os.IsNotExist(err) {
+		t.Fatalf("stale.log should be removed, stat err=%v", err)
+	}
+}
+
+func TestRestoreBundleFile_RejectsPathOutsideAllowedRoot(t *testing.T) {
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.Create("logs/test.log")
+	if err != nil {
+		t.Fatalf("Create failed: %v", err)
+	}
+	if _, err := w.Write([]byte("log")); err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("Close failed: %v", err)
+	}
+
+	reader, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	if err != nil {
+		t.Fatalf("NewReader failed: %v", err)
+	}
+
+	allowedRoot := t.TempDir()
+	destPath := filepath.Join(allowedRoot, "..", "escape.log")
+	if err := restoreBundleFile(reader, "logs/test.log", destPath, allowedRoot); err == nil {
+		t.Fatal("expected restoreBundleFile to reject paths outside the allowed root")
 	}
 }
