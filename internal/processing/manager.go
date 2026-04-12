@@ -85,6 +85,8 @@ func NewLifecycleManager(addFunc AddDownloadFunc, addWithIDFunc AddDownloadWithI
 	if err != nil {
 		settings = config.DefaultSettings()
 	}
+	// Seed global rate limiter from persisted config
+	utils.GlobalRateLimiter.SetRate(settings.Network.GlobalRateLimit * 1024)
 
 	var activeCheck IsNameActiveFunc
 	if len(isNameActive) > 0 {
