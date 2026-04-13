@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 
@@ -124,7 +125,9 @@ func decodeAndValidateDownloadRequest(r *http.Request) (DownloadRequest, error) 
 		return req, fmt.Errorf("invalid path")
 	}
 	if req.RelativeToDefaultDir && req.Path != "" {
-		if filepath.IsAbs(req.Path) {
+		// Linux filepath.IsAbs does not recognize Windows drive paths, so those
+		// are normalized later against the daemon's default download directory.
+		if filepath.IsAbs(req.Path) && !utils.IsWindowsAbsPath(req.Path) {
 			return req, fmt.Errorf("invalid path")
 		}
 		cleanPath := filepath.Clean(req.Path)
@@ -339,6 +342,10 @@ func processDownloads(urls []string, outputDir string, port int) int {
 func resolveOutputDir(reqPath string, relativeToDefaultDir bool, defaultOutputDir string, settings *config.Settings) string {
 	outPath := reqPath
 
+	if mapped := mapClientWindowsPath(reqPath, relativeToDefaultDir, defaultOutputDir, settings); mapped != "" {
+		return mapped
+	}
+
 	if relativeToDefaultDir && reqPath != "" {
 		baseDir := settings.General.DefaultDownloadDir
 		if baseDir == "" {
@@ -359,4 +366,44 @@ func resolveOutputDir(reqPath string, relativeToDefaultDir bool, defaultOutputDi
 	}
 
 	return outPath
+}
+
+func mapClientWindowsPath(reqPath string, relativeToDefaultDir bool, defaultOutputDir string, settings *config.Settings) string {
+	reqPath = strings.TrimSpace(reqPath)
+	if reqPath == "" || !utils.IsWindowsAbsPath(reqPath) {
+		return ""
+	}
+
+	baseDir := "."
+	if relativeToDefaultDir {
+		if settings != nil && strings.TrimSpace(settings.General.DefaultDownloadDir) != "" {
+			baseDir = settings.General.DefaultDownloadDir
+		} else if strings.TrimSpace(defaultOutputDir) != "" {
+			baseDir = defaultOutputDir
+		}
+	} else {
+		if strings.TrimSpace(defaultOutputDir) != "" {
+			baseDir = defaultOutputDir
+		} else if settings != nil && strings.TrimSpace(settings.General.DefaultDownloadDir) != "" {
+			baseDir = settings.General.DefaultDownloadDir
+		}
+	}
+
+	if mapped, ok := utils.MapWindowsPathToDefaultDir(reqPath, baseDir); ok {
+		return mapped
+	}
+
+	if !shouldFallbackUnmappedWindowsPath(relativeToDefaultDir, runtime.GOOS) {
+		return ""
+	}
+
+	// If we positively identified a Windows absolute path but could not
+	// project it onto the server-side default directory, keep the download
+	// rooted at baseDir instead of letting a bogus "E:/..." path turn into
+	// a Linux-relative path via EnsureAbsPath.
+	return filepath.Clean(baseDir)
+}
+
+func shouldFallbackUnmappedWindowsPath(relativeToDefaultDir bool, hostOS string) bool {
+	return relativeToDefaultDir || hostOS != "windows"
 }
