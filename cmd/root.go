@@ -126,12 +126,12 @@ func newLocalLifecycleManager(service core.DownloadService, getAll func() []type
 	return processing.NewLifecycleManager(addFunc, addWithIDFunc, buildPoolIsNameActive(getAll))
 }
 
-func startLifecycleEventWorker(service core.DownloadService, mgr *processing.LifecycleManager) (func(), error) {
+func startLifecycleEventWorker(ctx context.Context, service core.DownloadService, mgr *processing.LifecycleManager) (func(), error) {
 	if service == nil || mgr == nil {
 		return nil, nil
 	}
 
-	managerStream, managerCleanup, err := service.StreamEvents(context.Background())
+	managerStream, managerCleanup, err := service.StreamEvents(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -198,12 +198,12 @@ func currentPoolConfigs() []types.DownloadConfig {
 	return GlobalPool.GetAll()
 }
 
-func lifecycleForLocalService(service core.DownloadService) (*processing.LifecycleManager, error) {
+func lifecycleForLocalService(ctx context.Context, service core.DownloadService) (*processing.LifecycleManager, error) {
 	lifecycle := currentLifecycle()
 	if service == nil || GlobalService == nil || service != GlobalService {
 		return lifecycle, nil
 	}
-	return ensureLocalLifecycle(GlobalService, currentPoolConfigs)
+	return ensureLocalLifecycle(ctx, GlobalService, currentPoolConfigs)
 }
 
 func ensureGlobalLocalServiceAndLifecycle() error {
@@ -211,7 +211,7 @@ func ensureGlobalLocalServiceAndLifecycle() error {
 		localService := core.NewLocalDownloadServiceWithInput(GlobalPool, GlobalProgressCh)
 		GlobalService = localService
 
-		lifecycle, err := ensureLocalLifecycle(localService, currentPoolConfigs)
+		lifecycle, err := ensureLocalLifecycle(context.Background(), localService, currentPoolConfigs)
 		if err != nil {
 			return err
 		}
@@ -234,7 +234,7 @@ func ensureGlobalLocalServiceAndLifecycle() error {
 			UpdateURL:   lifecycle.UpdateURL,
 		})
 	} else {
-		_, err := ensureLocalLifecycle(GlobalService, currentPoolConfigs)
+		_, err := ensureLocalLifecycle(context.Background(), GlobalService, currentPoolConfigs)
 		return err
 	}
 	return nil
@@ -280,7 +280,7 @@ func recordPreflightDownloadError(url, outPath string, err error) {
 	}
 }
 
-func ensureLocalLifecycle(service core.DownloadService, getAll func() []types.DownloadConfig) (*processing.LifecycleManager, error) {
+func ensureLocalLifecycle(ctx context.Context, service core.DownloadService, getAll func() []types.DownloadConfig) (*processing.LifecycleManager, error) {
 	globalLifecycleMu.Lock()
 	defer globalLifecycleMu.Unlock()
 
@@ -288,7 +288,7 @@ func ensureLocalLifecycle(service core.DownloadService, getAll func() []types.Do
 		GlobalLifecycle = newLocalLifecycleManager(service, getAll)
 	}
 	if GlobalLifecycleCleanup == nil {
-		cleanup, err := startLifecycleEventWorker(service, GlobalLifecycle)
+		cleanup, err := startLifecycleEventWorker(ctx, service, GlobalLifecycle)
 		if err != nil {
 			return nil, err
 		}

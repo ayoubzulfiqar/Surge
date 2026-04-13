@@ -237,9 +237,6 @@ func (s *RemoteDownloadService) Shutdown() error {
 
 // StreamEvents returns a channel that receives real-time download events via SSE.
 func (s *RemoteDownloadService) StreamEvents(ctx context.Context) (<-chan interface{}, func(), error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	ch := make(chan interface{}, 100)
 	go s.streamWithReconnect(ctx, ch)
 	return ch, func() {}, nil

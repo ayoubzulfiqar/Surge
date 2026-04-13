@@ -283,9 +283,6 @@ func (s *LocalDownloadService) getSpeedEmaAlpha() float64 {
 
 // StreamEvents returns a channel that receives real-time download events.
 func (s *LocalDownloadService) StreamEvents(ctx context.Context) (<-chan interface{}, func(), error) {
-	if ctx == nil {
-		ctx = context.Background()
-	}
 	ch := make(chan interface{}, 100)
 	s.listenerMu.Lock()
 	s.listeners = append(s.listeners, ch)

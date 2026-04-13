@@ -237,7 +237,7 @@ func maybeRequireDownloadApproval(w http.ResponseWriter, service core.DownloadSe
 }
 
 func enqueueDownloadRequest(r *http.Request, service core.DownloadService, resolved *resolvedDownloadRequest) (string, error) {
-	lifecycle, err := lifecycleForLocalService(service)
+	lifecycle, err := lifecycleForLocalService(r.Context(), service)
 	if err != nil {
 		return "", fmt.Errorf("failed to initialize lifecycle manager: %w", err)
 	}
@@ -290,7 +290,7 @@ func processDownloads(urls []string, outputDir string, port int) int {
 
 	settings := getSettings()
 
-	lifecycle, err := lifecycleForLocalService(GlobalService)
+	lifecycle, err := lifecycleForLocalService(currentEnqueueContext(), GlobalService)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "Error: unable to initialize lifecycle manager:", err)
 		return 0

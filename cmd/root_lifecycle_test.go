@@ -402,7 +402,7 @@ func TestEnsureLocalLifecycle_ConcurrentInitializationStartsOneStream(t *testing
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			mgr, err := ensureLocalLifecycle(service, nil)
+			mgr, err := ensureLocalLifecycle(context.Background(), service, nil)
 			if err != nil {
 				errs <- err
 				return
