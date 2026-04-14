@@ -205,7 +205,7 @@ async function getBaseUrl(): Promise<string | null> {
     lastBaseUrlFailureAt = 0;
 
     if (!cachedServerUrl && cachedDiscoveredServerUrl !== nextBaseUrl) {
-      await persistDiscoveredServerUrl(nextBaseUrl).catch(() => {});
+      await persistDiscoveredServerUrl(nextBaseUrl).catch(() => { });
     }
 
     return nextBaseUrl;
@@ -300,7 +300,7 @@ async function sendToSurge(
   directory: string,
   headers: Record<string, string>,
   options?: { skipApproval?: boolean },
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; filename?: string; error?: string }> {
   const base = await getBaseUrl();
   if (!base) return { success: false, error: 'Server not running' };
 
@@ -318,7 +318,10 @@ async function sendToSurge(
       signal: AbortSignal.timeout(5000),
     });
 
-    if (resp.ok) return { success: true };
+    if (resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      return { success: true, filename: data.filename };
+    }
     return { success: false, error: await resp.text().catch(() => '') };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -418,7 +421,7 @@ async function handleDownloadCreated(downloadItem: {
   if (!await checkHealthSilent()) return;
 
   const { filename, directory } = extractPathInfo(downloadItem);
-  const displayName = filename || downloadItem.url.split('/').pop() || 'Unknown file';
+  const duplicateDisplayName = filename || downloadItem.url.split('/').pop()?.split('?')[0] || 'Unknown file';
   const headers = getCapturedHeaders(downloadItem.url) ?? {};
 
   // Check for duplicates in the extension BEFORE sending to server.
@@ -428,7 +431,7 @@ async function handleDownloadCreated(downloadItem: {
       pendingDuplicates,
       pendingDuplicateCounter,
       url: downloadItem.url,
-      filename: displayName,
+      filename: duplicateDisplayName,
       directory,
       cleanupStaleDuplicates,
       persistPendingDuplicates,
@@ -439,7 +442,8 @@ async function handleDownloadCreated(downloadItem: {
     return;
   }
 
-  const result = await sendToSurge(downloadItem.url, displayName, directory, headers);
+  // Force empty filename hint for backend - rely on backend prober.
+  const result = await sendToSurge(downloadItem.url, '', directory, headers);
 
   if (result.success) {
     await tryOpenPopup();
@@ -448,7 +452,7 @@ async function handleDownloadCreated(downloadItem: {
         type: 'basic',
         iconUrl: 'icons/icon48.png',
         title: 'Surge',
-        message: `Download started: ${displayName}`,
+        message: `Download started: ${result.filename || 'Unknown file'}`,
       });
     }
   } else if (result.error) {
@@ -504,7 +508,7 @@ async function startSSEStream(): Promise<void> {
             else if (line.startsWith('data: ') && currentEvent) {
               try {
                 const data = JSON.parse(line.slice(6));
-                browser.runtime.sendMessage({ type: 'sseEvent', event: currentEvent, data }).catch(() => {});
+                browser.runtime.sendMessage({ type: 'sseEvent', event: currentEvent, data }).catch(() => { });
               } catch { /* skip malformed */ }
             }
           }
@@ -521,7 +525,7 @@ async function startSSEStream(): Promise<void> {
         else if (line.startsWith('data: ') && currentEvent) {
           try {
             const data = JSON.parse(line.slice(6));
-            browser.runtime.sendMessage({ type: 'sseEvent', event: currentEvent, data }).catch(() => {});
+            browser.runtime.sendMessage({ type: 'sseEvent', event: currentEvent, data }).catch(() => { });
           } catch { /* skip malformed */ }
           currentEvent = null;
         }
@@ -535,7 +539,7 @@ async function startSSEStream(): Promise<void> {
 function scheduleSSERetry(): void {
   const delay = Math.min(SSE_RETRY_BASE_MS * Math.pow(2, sseRetryCount), SSE_RETRY_MAX_MS);
   sseRetryCount++;
-  setTimeout(() => startSSEStream().catch(() => {}), delay);
+  setTimeout(() => startSSEStream().catch(() => { }), delay);
 }
 
 async function fullSync(): Promise<void> {
@@ -547,7 +551,7 @@ async function fullSync(): Promise<void> {
     history: historyResult.data,
     authError: downloadsResult.authError || historyResult.authError,
     authValid: downloadsResult.ok || historyResult.ok,
-  }).catch(() => {});
+  }).catch(() => { });
 }
 
 // ---------------------------------------------------------------------------
@@ -639,7 +643,7 @@ async function notifyNextPendingDuplicate(): Promise<void> {
   if (!nextDuplicate) return;
 
   const [id, data] = nextDuplicate;
-  if (id) browser.runtime.sendMessage({ type: 'promptDuplicate', id, filename: data.filename }).catch(() => {});
+  if (id) browser.runtime.sendMessage({ type: 'promptDuplicate', id, filename: data.filename }).catch(() => { });
 }
 
 async function handleConfirmDuplicate(id: string): Promise<{ success: boolean; error?: string }> {
@@ -652,7 +656,7 @@ async function handleConfirmDuplicate(id: string): Promise<{ success: boolean; e
 
   const result = await sendToSurge(
     pending.url,
-    pending.filename,
+    '', // Force empty - rely on backend prober
     pending.directory,
     {},
     { skipApproval: true },
@@ -746,20 +750,20 @@ export default defineBackground(() => {
     const wasConnected = isConnected;
     await checkHealthSilent();
     if (!isConnected && wasConnected) sseAbortController?.abort();
-    if (isConnected && !wasConnected) startSSEStream().catch(() => {});
+    if (isConnected && !wasConnected) startSSEStream().catch(() => { });
   }, HEALTH_CHECK_INTERVAL_MS);
 
   // Periodic full sync with backend
-  setInterval(() => { fullSync().catch(() => {}); }, SYNC_INTERVAL_MS);
+  setInterval(() => { fullSync().catch(() => { }); }, SYNC_INTERVAL_MS);
 
   // Startup: restore persisted state
-  rehydratePendingDuplicates().catch(() => {});
+  rehydratePendingDuplicates().catch(() => { });
   ensurePersistedStateLoaded()
     .then(() => checkHealthSilent())
     .then(() => {
-      if (isConnected) startSSEStream().catch(() => {});
+      if (isConnected) startSSEStream().catch(() => { });
     })
-    .catch(() => {});
+    .catch(() => { });
 });
 
 export const __test__ = {
@@ -798,4 +802,5 @@ export const __test__ = {
     pendingDuplicates.clear();
     processedIds.clear();
   },
+  handleDownloadCreated,
 };

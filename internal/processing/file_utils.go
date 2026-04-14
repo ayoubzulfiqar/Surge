@@ -44,11 +44,13 @@ func InferFilenameFromURL(rawURL string) string {
 	query := parsed.Query()
 	if name := strings.TrimSpace(query.Get("filename")); name != "" {
 		if base := strings.TrimSpace(path.Base(name)); isSafeComponent(base) {
+			utils.Debug("Inferred filename from query param 'filename': %s", base)
 			return base
 		}
 	}
 	if name := strings.TrimSpace(query.Get("file")); name != "" {
 		if base := strings.TrimSpace(path.Base(name)); isSafeComponent(base) {
+			utils.Debug("Inferred filename from query param 'file': %s", base)
 			return base
 		}
 	}
@@ -57,6 +59,7 @@ func InferFilenameFromURL(rawURL string) string {
 	if !isSafeComponent(base) {
 		return ""
 	}
+	utils.Debug("Inferred filename from URL path: %s", base)
 	return base
 }
 
@@ -159,8 +162,10 @@ func getBaseFilename(url, candidate string, probe *ProbeResult) string {
 	if candidate != "" {
 		return candidate
 	}
-	if probe != nil && probe.Filename != "" {
-		return probe.Filename
+	if probe != nil {
+		if probe.DetectedFilename != "" {
+			return probe.DetectedFilename
+		}
 	}
 	return InferFilenameFromURL(url)
 }
@@ -178,6 +183,9 @@ func ResolveDestination(url, candidateFilename, defaultDir string, routeToCatego
 			return "", "", err
 		}
 	}
+
+	// Safety: Truncate early so GetUniqueFilename has room to append a suffix
+	filename = utils.TruncateFilename(filename)
 
 	finalFilename := GetUniqueFilename(destPath, filename, isNameActive)
 	if finalFilename == "" {

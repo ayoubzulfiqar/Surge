@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 
@@ -65,7 +66,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request, defaultOutputDir str
 		return
 	}
 
-	newID, err := enqueueDownloadRequest(r, service, resolved)
+	newID, filename, err := enqueueDownloadRequest(r, service, resolved)
 	if err != nil {
 		recordPreflightDownloadError(resolved.urlForAdd, resolved.outPath, err)
 		publishSystemLog(fmt.Sprintf("Error adding %s: %v", resolved.urlForAdd, err))
@@ -74,10 +75,11 @@ func handleDownload(w http.ResponseWriter, r *http.Request, defaultOutputDir str
 	}
 
 	atomic.AddInt32(&activeDownloads, 1)
-	writeJSONResponse(w, http.StatusOK, map[string]string{
-		"status":  "queued",
-		"message": "Download queued successfully",
-		"id":      newID,
+	writeJSONResponse(w, http.StatusOK, map[string]interface{}{
+		"status":   "queued",
+		"message":  "Download queued successfully",
+		"id":       newID,
+		"filename": filename,
 	})
 }
 
@@ -125,8 +127,10 @@ func decodeAndValidateDownloadRequest(r *http.Request) (DownloadRequest, error) 
 		return req, errors.New("invalid path")
 	}
 	if req.RelativeToDefaultDir && req.Path != "" {
-		if filepath.IsAbs(req.Path) {
-			return req, errors.New("invalid path")
+		// Linux filepath.IsAbs does not recognize Windows drive paths, so those
+		// are normalized later against the daemon's default download directory.
+		if filepath.IsAbs(req.Path) && !utils.IsWindowsAbsPath(req.Path) {
+			return req, fmt.Errorf("invalid path")
 		}
 		cleanPath := filepath.Clean(req.Path)
 		if cleanPath == ".." || strings.HasPrefix(cleanPath, ".."+string(filepath.Separator)) {
@@ -144,13 +148,13 @@ func resolveDownloadRequest(r *http.Request, defaultOutputDir string) (*resolved
 		return nil, err
 	}
 
-	utils.Debug("Received download request: URL=%s, Path=%s, Headers=%v", req.URL, req.Path, req.Headers)
+	utils.Debug("Received download request: URL=%s, Filename=%s, Path=%s, Headers=%v", req.URL, req.Filename, req.Path, req.Headers)
 
 	outPath := utils.EnsureAbsPath(resolveOutputDir(req.Path, req.RelativeToDefaultDir, defaultOutputDir, settings))
 	urlForAdd, mirrorsForAdd := normalizeDownloadTargets(req.URL, req.Mirrors)
 	isDuplicate, isActive := resolveDuplicateState(urlForAdd, settings)
 
-	utils.Debug("Download request: URL=%s, SkipApproval=%v, isDuplicate=%v, isActive=%v", urlForAdd, req.SkipApproval, isDuplicate, isActive)
+	utils.Debug("Download request: URL=%s, Filename=%s, SkipApproval=%v, isDuplicate=%v, isActive=%v", urlForAdd, req.Filename, req.SkipApproval, isDuplicate, isActive)
 
 	return &resolvedDownloadRequest{
 		request:       req,
@@ -236,10 +240,10 @@ func maybeRequireDownloadApproval(w http.ResponseWriter, service core.DownloadSe
 	return true
 }
 
-func enqueueDownloadRequest(r *http.Request, service core.DownloadService, resolved *resolvedDownloadRequest) (string, error) {
+func enqueueDownloadRequest(r *http.Request, service core.DownloadService, resolved *resolvedDownloadRequest) (string, string, error) {
 	lifecycle, err := lifecycleForLocalService(r.Context(), service)
 	if err != nil {
-		return "", fmt.Errorf("failed to initialize lifecycle manager: %w", err)
+		return "", "", fmt.Errorf("failed to initialize lifecycle manager: %w", err)
 	}
 
 	req := resolved.request
@@ -255,7 +259,8 @@ func enqueueDownloadRequest(r *http.Request, service core.DownloadService, resol
 		})
 	}
 
-	return service.Add(resolved.urlForAdd, resolved.outPath, req.Filename, resolved.mirrorsForAdd, req.Headers, req.IsExplicitCategory, 0, false)
+	id, err := service.Add(resolved.urlForAdd, resolved.outPath, req.Filename, resolved.mirrorsForAdd, req.Headers, req.IsExplicitCategory, 0, false)
+	return id, req.Filename, err
 }
 
 // processDownloads handles the logic of adding downloads either to local pool or remote server
@@ -320,7 +325,7 @@ func processDownloads(urls []string, outputDir string, port int) int {
 			continue
 		}
 
-		_, err := lifecycle.Enqueue(currentEnqueueContext(), &processing.DownloadRequest{
+		_, _, err := lifecycle.Enqueue(currentEnqueueContext(), &processing.DownloadRequest{
 			URL:                url,
 			Path:               outPath,
 			Mirrors:            mirrors,
@@ -339,6 +344,10 @@ func processDownloads(urls []string, outputDir string, port int) int {
 
 func resolveOutputDir(reqPath string, relativeToDefaultDir bool, defaultOutputDir string, settings *config.Settings) string {
 	outPath := reqPath
+
+	if mapped := mapClientWindowsPath(reqPath, relativeToDefaultDir, defaultOutputDir, settings); mapped != "" {
+		return mapped
+	}
 
 	if relativeToDefaultDir && reqPath != "" {
 		baseDir := settings.General.DefaultDownloadDir
@@ -360,4 +369,44 @@ func resolveOutputDir(reqPath string, relativeToDefaultDir bool, defaultOutputDi
 	}
 
 	return outPath
+}
+
+func mapClientWindowsPath(reqPath string, relativeToDefaultDir bool, defaultOutputDir string, settings *config.Settings) string {
+	reqPath = strings.TrimSpace(reqPath)
+	if reqPath == "" || !utils.IsWindowsAbsPath(reqPath) {
+		return ""
+	}
+
+	baseDir := "."
+	if relativeToDefaultDir {
+		if settings != nil && strings.TrimSpace(settings.General.DefaultDownloadDir) != "" {
+			baseDir = settings.General.DefaultDownloadDir
+		} else if strings.TrimSpace(defaultOutputDir) != "" {
+			baseDir = defaultOutputDir
+		}
+	} else {
+		if strings.TrimSpace(defaultOutputDir) != "" {
+			baseDir = defaultOutputDir
+		} else if settings != nil && strings.TrimSpace(settings.General.DefaultDownloadDir) != "" {
+			baseDir = settings.General.DefaultDownloadDir
+		}
+	}
+
+	if mapped, ok := utils.MapWindowsPathToDefaultDir(reqPath, baseDir); ok {
+		return mapped
+	}
+
+	if !shouldFallbackUnmappedWindowsPath(relativeToDefaultDir, runtime.GOOS) {
+		return ""
+	}
+
+	// If we positively identified a Windows absolute path but could not
+	// project it onto the server-side default directory, keep the download
+	// rooted at baseDir instead of letting a bogus "E:/..." path turn into
+	// a Linux-relative path via EnsureAbsPath.
+	return filepath.Clean(baseDir)
+}
+
+func shouldFallbackUnmappedWindowsPath(relativeToDefaultDir bool, hostOS string) bool {
+	return relativeToDefaultDir || hostOS != "windows"
 }

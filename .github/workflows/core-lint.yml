@@ -1,10 +1,14 @@
-name: Lint
+name: Core Lint
 
 on:
   push:
     branches:
       - main
+    paths-ignore:
+      - "extension/**"
   pull_request:
+    paths-ignore:
+      - "extension/**"
 
 permissions:
   contents: read

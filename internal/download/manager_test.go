@@ -567,7 +567,7 @@ func TestProbeServer_LargeFile(t *testing.T) {
 }
 
 func TestProbeResult_Fields(t *testing.T) {
-	pr := &ProbeResult{
+	pr := &processing.ProbeResult{
 		FileSize:      123456789,
 		SupportsRange: true,
 		Filename:      "document.pdf",
@@ -589,7 +589,7 @@ func TestProbeResult_Fields(t *testing.T) {
 }
 
 func TestProbeResult_ZeroValues(t *testing.T) {
-	pr := &ProbeResult{}
+	pr := &processing.ProbeResult{}
 
 	if pr.FileSize != 0 {
 		t.Errorf("FileSize = %d, want 0", pr.FileSize)
