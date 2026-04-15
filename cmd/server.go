@@ -68,7 +68,7 @@ var serverStartCmd = &cobra.Command{
 
 		// Get token flag
 		tokenFlag := resolveServerToken(cmd)
-		return startServerLogic(cmd, args, portFlag, batchFile, outputDir, exitWhenDone, noResume, tokenFlag)
+		return startServerLogic(args, portFlag, batchFile, outputDir, exitWhenDone, noResume, tokenFlag)
 	},
 }
 
@@ -172,7 +172,7 @@ func readPID() int {
 	return pid
 }
 
-func startServerLogic(cmd *cobra.Command, args []string, portFlag int, batchFile string, outputDir string, exitWhenDone bool, noResume bool, tokenOverride string) error {
+func startServerLogic(args []string, portFlag int, batchFile string, outputDir string, exitWhenDone bool, noResume bool, tokenOverride string) error {
 	port, listener, err := bindServerListener(portFlag)
 	if err != nil {
 		return err

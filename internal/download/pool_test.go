@@ -467,7 +467,7 @@ func TestWorkerPool_GracefulShutdown_PausesAll(t *testing.T) {
 	pool.mu.Unlock()
 
 	// GracefulShutdown should call PauseAll
-	// PauseAll will set IsPausing() = true
+	// which will set IsPausing() = true
 	// GracefulShutdown waits for IsPausing() = false
 	// We verify that PauseAll was called by checking state.IsPausing()
 	// Then we clear it to unblock shutdown
