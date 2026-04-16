@@ -5,7 +5,7 @@ run:
   tests: true
 
 linters:
-  disable-all: true
+  default: none
   enable:
     # correctness
     - staticcheck
@@ -37,32 +37,32 @@ linters:
     - dupword
     - dupl
 
-settings:
-  govet:
-    enable:
-      - shadow
-      - fieldalignment
-      - copylocks
-      - unusedresult
+  settings:
+    govet:
+      enable:
+        - shadow
+        - fieldalignment
+        - copylocks
+        - unusedresult
 
-  gosec:
-    excludes:
-      - G304
+    gosec:
+      excludes:
+        - G304
 
-  gocritic:
-    enabled-tags:
-      - performance
-      - diagnostic
-      - style
+    gocritic:
+      enabled-tags:
+        - performance
+        - diagnostic
+        - style
 
-  errorlint:
-    check-type-assertions: true
-    
-issues:
-  exclude-rules:
-    # Disable specific linters just for test files
-    - path: _test\.go
-      linters:
-        - gosec     # Tests often have hardcoded credentials or weak rand sources
-        - errcheck  # (Optional) If you don't care about unhandled errors in test setup
-        - dupl      # If you enable the dupl linter later, table-driven tests often trigger it
+    errorlint:
+      asserts: true
+
+  exclusions:
+    rules:
+      # Disable specific linters just for test files
+      - path: _test\.go
+        linters:
+          - gosec     # Tests often have hardcoded credentials or weak rand sources
+          - errcheck  # (Optional) If you don't care about unhandled errors in test setup
+          - dupl      # If you enable the dupl linter later, table-driven tests often trigger it
