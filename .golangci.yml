@@ -35,6 +35,7 @@ linters:
     - unparam
     # - nestif
     - dupword
+    - dupl
 
 settings:
   govet:
