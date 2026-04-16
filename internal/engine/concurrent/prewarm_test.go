@@ -54,7 +54,7 @@ func TestConcurrentDownloader_PrewarmConnections(t *testing.T) {
 	defer server.Close()
 
 	// Ensure incomplete file exists
-	if f, err := os.Create(destPath + types.IncompleteSuffix); err == nil {
+	if f, err := os.Create(destPath + types.IncompleteSuffix); err == nil { //nolint:gosec // mock file
 		_ = f.Close()
 	}
 

@@ -627,7 +627,7 @@ func TestSingleDownloader_PreallocateFailure_ReleasesFileHandle(t *testing.T) {
 
 	// Cenário: criar o .surge como read-only para que preallocateFile (Truncate) falhe
 	surgePath := destPath + types.IncompleteSuffix
-	f, err := os.Create(surgePath)
+	f, err := os.Create(surgePath) //nolint:gosec // mock file
 	if err != nil {
 		t.Fatal(err)
 	}

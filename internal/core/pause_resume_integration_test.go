@@ -175,7 +175,7 @@ func TestIntegration_PauseResume_HotPath_Aggregates(t *testing.T) {
 	const filename = "hot-aggregate.bin"
 	destPath := filepath.Join(outputDir, filename)
 
-	if f, err := os.Create( destPath + ".surge"); err == nil {
+	if f, err := os.Create(destPath + ".surge"); err == nil { //nolint:gosec // mock file
 		_ = f.Close()
 	}
 	id, err := svc.Add(context.Background(), server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
@@ -335,7 +335,7 @@ func TestIntegration_PauseResume_ColdPath_StateContinuity(t *testing.T) {
 	forceSingleConnectionRuntime(svc1)
 	evCleanup1 := startEventWorkerForTest(t, svc1)
 
-	if f, err := os.Create( destPath + ".surge"); err == nil {
+	if f, err := os.Create(destPath + ".surge"); err == nil { //nolint:gosec // mock file
 		_ = f.Close()
 	}
 	id, err := svc1.Add(context.Background(), server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
@@ -482,7 +482,7 @@ func TestIntegration_PauseResume_ResumeBatchRejectsPausing(t *testing.T) {
 	ps.SetPausing(true)
 
 	destPath := filepath.Join(t.TempDir(), "file.bin")
-	if f, err := os.Create( destPath + ".surge"); err == nil {
+	if f, err := os.Create(destPath + ".surge"); err == nil { //nolint:gosec // mock file
 		_ = f.Close()
 	}
 	pool.Add(types.DownloadConfig{
@@ -563,7 +563,7 @@ func TestIntegration_PauseResume_StatusFormulaInvariants(t *testing.T) {
 	outputDir := t.TempDir()
 	const filename = "formula.bin"
 	destPath := filepath.Join(outputDir, filename)
-	if f, err := os.Create(destPath + ".surge"); err == nil {
+	if f, err := os.Create(destPath + ".surge"); err == nil { //nolint:gosec // mock file
 		_ = f.Close()
 	}
 	id, err := svc.Add(context.Background(), server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
@@ -661,7 +661,7 @@ func TestIntegration_PauseResume_ConcreteSnapshotDebugString(t *testing.T) {
 	const filename = "snapshot-debug.bin"
 	destPath := filepath.Join(outputDir, filename)
 
-	if f, err := os.Create(destPath + ".surge"); err == nil {
+	if f, err := os.Create(destPath + ".surge"); err == nil { //nolint:gosec // mock file
 		_ = f.Close()
 	}
 	id, err := svc.Add(context.Background(), server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
@@ -736,7 +736,7 @@ func TestIntegration_PauseResumeBatch_ColdPath(t *testing.T) {
 	evCleanup1 := startEventWorkerForTest(t, svc1)
 
 	destPath1 := filepath.Join(outputDir, "cold1.bin")
-	if f, err := os.Create(destPath1 + ".surge"); err == nil {
+	if f, err := os.Create(destPath1 + ".surge"); err == nil { //nolint:gosec // mock file
 		_ = f.Close()
 	}
 	id1, err := svc1.Add(context.Background(), server.URL(), outputDir, "cold1.bin", nil, nil, false, fileSize, true)
@@ -745,7 +745,7 @@ func TestIntegration_PauseResumeBatch_ColdPath(t *testing.T) {
 	}
 
 	destPath2 := filepath.Join(outputDir, "cold2.bin")
-	if f, err := os.Create(destPath2 + ".surge"); err == nil {
+	if f, err := os.Create(destPath2 + ".surge"); err == nil { //nolint:gosec // mock file
 		_ = f.Close()
 	}
 	id2, err := svc1.Add(context.Background(), server.URL(), outputDir, "cold2.bin", nil, nil, false, fileSize, true)
@@ -786,7 +786,7 @@ func TestIntegration_PauseResumeBatch_ColdPath(t *testing.T) {
 
 	// Hot path ID for mix test
 	destPathHot := filepath.Join(outputDir, "hot1.bin")
-	if f, err := os.Create(destPathHot + ".surge"); err == nil {
+	if f, err := os.Create(destPathHot + ".surge"); err == nil { //nolint:gosec // mock file
 		_ = f.Close()
 	}
 	idHot, err := svc2.Add(context.Background(), server.URL(), outputDir, "hot1.bin", nil, nil, false, fileSize, true)

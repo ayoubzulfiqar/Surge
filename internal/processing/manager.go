@@ -61,7 +61,7 @@ func precreateWorkingFile(destPath, filename string) error {
 	surgePath := filepath.Join(destPath, filename) + types.IncompleteSuffix
 	// Exclusive create turns the .surge file into the reservation itself, so two
 	// concurrent enqueues cannot silently target the same working path.
-	file, err := os.OpenFile(surgePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
+	file, err := os.OpenFile(surgePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600) //nolint:gosec // internal state file
 	if err != nil {
 		return fmt.Errorf("failed to pre-create working file: %w", err)
 	}

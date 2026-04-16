@@ -2,11 +2,11 @@ package testutil
 
 import (
 	"context"
-	"time"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 // NewHTTPServer starts an httptest server bound to IPv4 to avoid IPv6 listener issues in sandboxed environments.
@@ -19,7 +19,7 @@ func NewHTTPServer(handler http.Handler) *httptest.Server {
 	srv := &httptest.Server{
 		Listener: ln,
 		Config: &http.Server{
-			Handler: handler,
+			Handler:           handler,
 			ReadHeaderTimeout: 5 * time.Second,
 		},
 	}
@@ -39,7 +39,7 @@ func NewHTTPServerT(t *testing.T, handler http.Handler) *httptest.Server {
 	srv := &httptest.Server{
 		Listener: ln,
 		Config: &http.Server{
-			Handler: handler,
+			Handler:           handler,
 			ReadHeaderTimeout: 5 * time.Second,
 		},
 	}

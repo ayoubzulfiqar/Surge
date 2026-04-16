@@ -1,7 +1,6 @@
 package main
 
 import (
-	"time"
 	"context"
 	"fmt"
 	"net"
@@ -10,6 +9,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/SurgeDM/Surge/internal/engine/events"
 )

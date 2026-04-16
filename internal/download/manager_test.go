@@ -153,7 +153,7 @@ func TestTUIDownload_StartedEventUsesFullDestPath(t *testing.T) {
 
 	finalPath := filepath.Join(tmpDir, "file.bin")
 	surgePath := finalPath + types.IncompleteSuffix
-	f, err := os.Create(surgePath)
+	f, err := os.Create(surgePath) //nolint:gosec // mock file
 	if err != nil {
 		t.Fatalf("failed to pre-create incomplete file: %v", err)
 	}

@@ -90,7 +90,7 @@ func TestIntegration_PauseResume(t *testing.T) {
 
 	// Pre-create incomplete file (simulating processing layer)
 	incompletePath := destPath + types.IncompleteSuffix
-	f, err := os.Create(incompletePath)
+	f, err := os.Create(incompletePath) //nolint:gosec // internal test file
 	if err != nil {
 		t.Fatalf("Failed to pre-create partial file: %v", err)
 	}

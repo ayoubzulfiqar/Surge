@@ -260,7 +260,7 @@ func TestLoadSettings_CorruptedJSON(t *testing.T) {
 	}
 
 	// Read and attempt to unmarshal
-	data, _ := os.ReadFile(testPath)
+	data, _ := os.ReadFile(testPath) //nolint:gosec // testing
 	settings := DefaultSettings()
 	err = json.Unmarshal(data, settings)
 

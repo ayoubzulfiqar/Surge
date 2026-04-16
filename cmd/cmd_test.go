@@ -117,7 +117,7 @@ func TestSaveAndRemoveActivePort(t *testing.T) {
 
 	// Verify file exists and contains correct port
 	portFile := filepath.Join(config.GetRuntimeDir(), "port")
-	data, err := os.ReadFile(portFile)
+	data, err := os.ReadFile(portFile) //nolint:gosec // internal test file
 	if err != nil {
 		t.Fatalf("Failed to read port file: %v", err)
 	}
@@ -1037,7 +1037,7 @@ func TestPortFileLifecycle(t *testing.T) {
 	saveActivePort(9999)
 
 	// Verify it was created
-	data, err := os.ReadFile(portFile)
+	data, err := os.ReadFile(portFile) //nolint:gosec // internal test file
 	if err != nil {
 		t.Fatalf("Port file not created: %v", err)
 	}

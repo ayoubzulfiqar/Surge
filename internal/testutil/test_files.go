@@ -27,7 +27,7 @@ func TempDir(prefix string) (string, func(), error) {
 func CreateTestFile(dir, name string, size int64, random bool) (string, error) {
 	path := filepath.Join(dir, name)
 
-	f, err := os.Create(path)
+	f, err := os.Create(path) //nolint:gosec // test utility
 	if err != nil {
 		return "", err
 	}
@@ -64,7 +64,7 @@ func CreateTestFile(dir, name string, size int64, random bool) (string, error) {
 func CreateSurgeFile(dir, name string, totalSize, downloadedSize int64) (string, error) {
 	path := filepath.Join(dir, name+".surge")
 
-	f, err := os.Create(path)
+	f, err := os.Create(path) //nolint:gosec // test utility
 	if err != nil {
 		return "", err
 	}
@@ -128,12 +128,12 @@ func (e *FileSizeMismatchError) Error() string {
 
 // CompareFiles checks if two files have identical content.
 func CompareFiles(path1, path2 string) (bool, error) {
-	data1, err := os.ReadFile(path1)
+	data1, err := os.ReadFile(path1) //nolint:gosec // test utility
 	if err != nil {
 		return false, err
 	}
 
-	data2, err := os.ReadFile(path2)
+	data2, err := os.ReadFile(path2) //nolint:gosec // test utility
 	if err != nil {
 		return false, err
 	}
@@ -153,7 +153,7 @@ func CompareFiles(path1, path2 string) (bool, error) {
 
 // ReadFileChunk reads a specific byte range from a file.
 func ReadFileChunk(path string, offset, length int64) ([]byte, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // test utility
 	if err != nil {
 		return nil, err
 	}

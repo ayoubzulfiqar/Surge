@@ -37,7 +37,7 @@ func TestFinalizeCompletedFile_CopiesAcrossDevicesOnEXDEV(t *testing.T) {
 	}
 	copyCompletedFile = func(src, dst string) error {
 		copied = true
-		data, err := os.ReadFile(src)
+		data, err := os.ReadFile(src) //nolint:gosec // internal test file
 		if err != nil {
 			return err
 		}
@@ -51,7 +51,7 @@ func TestFinalizeCompletedFile_CopiesAcrossDevicesOnEXDEV(t *testing.T) {
 		t.Fatal("expected copy fallback to run on EXDEV")
 	}
 
-	data, err := os.ReadFile(finalPath)
+	data, err := os.ReadFile(finalPath) //nolint:gosec // internal test file
 	if err != nil {
 		t.Fatalf("failed to read finalized file: %v", err)
 	}

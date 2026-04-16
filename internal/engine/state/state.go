@@ -119,7 +119,7 @@ func SaveStateWithOptions(ctx context.Context, url string, destPath string, stat
 		if numTasks > 0 {
 			// Prepare statement for full batches
 			placeholders := strings.Repeat("(?, ?, ?),", batchSize)
-			placeholders = placeholders[:len(placeholders)-1] // remove trailing comma
+			placeholders = placeholders[:len(placeholders)-1]                                 // remove trailing comma
 			query := "INSERT INTO tasks (download_id, offset, length) VALUES " + placeholders //nolint:gosec // safe concatenation of placeholders
 			stmt, err := tx.PrepareContext(ctx, query)
 			if err != nil {
@@ -175,7 +175,7 @@ func computeFileHashMD5WithTimeout(path string, timeout time.Duration) (string, 
 		return "", true, nil
 	}
 
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // internal db file
 	if err != nil {
 		return "", false, err
 	}
@@ -777,7 +777,7 @@ func LoadStates(ctx context.Context, ids []string) (map[string]*types.DownloadSt
 // computeFileHash computes SHA-256 hash of a file for integrity verification.
 // Returns the hex-encoded hash or empty string on error.
 func computeFileHash(path string) (string, error) {
-	f, err := os.Open(path)
+	f, err := os.Open(path) //nolint:gosec // internal db file
 	if err != nil {
 		return "", err
 	}
