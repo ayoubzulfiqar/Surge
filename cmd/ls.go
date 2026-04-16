@@ -192,7 +192,7 @@ func showDownloadDetails(ctx context.Context, partialID string, jsonOutput bool,
 			if resp.StatusCode == http.StatusOK {
 				var status types.DownloadStatus
 				if err := json.NewDecoder(resp.Body).Decode(&status); err == nil {
-					printDownloadDetail(status, jsonOutput)
+					printDownloadDetail(&status, jsonOutput)
 					return nil
 				} else if strictRemote {
 					return fmt.Errorf("error decoding remote download details: %w", err)
@@ -238,11 +238,11 @@ func showDownloadDetails(ctx context.Context, partialID string, jsonOutput bool,
 		Downloaded: found.Downloaded,
 		Progress:   progress,
 	}
-	printDownloadDetail(status, jsonOutput)
+	printDownloadDetail(&status, jsonOutput)
 	return nil
 }
 
-func printDownloadDetail(d types.DownloadStatus, jsonOutput bool) {
+func printDownloadDetail(d *types.DownloadStatus, jsonOutput bool) {
 	if jsonOutput {
 		data, _ := json.MarshalIndent(d, "", "  ")
 		fmt.Println(string(data))

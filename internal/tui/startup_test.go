@@ -83,7 +83,7 @@ func TestTUI_Startup_LoadsCompletedTiming(t *testing.T) {
 	const timeTakenMs = int64(2500)
 	const avgSpeed = float64(2 * 1024 * 1024) // 2 MB/s
 
-	if err := state.AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := state.AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:         testID,
 		URL:        testURL,
 		URLHash:    state.URLHash(testURL),
@@ -135,7 +135,7 @@ func TestTUI_Startup_LoadsErroredDownloadsIntoDoneTab(t *testing.T) {
 	testID := "tui-error-id"
 	testURL := "http://example.com/error.bin"
 	testDest := filepath.Join(tmpDir, "error.bin")
-	if err := state.AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := state.AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:       testID,
 		URL:      testURL,
 		URLHash:  state.URLHash(testURL),

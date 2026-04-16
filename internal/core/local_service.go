@@ -18,7 +18,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func completedSpeedMBps(entry types.DownloadEntry) float64 {
+func completedSpeedMBps(entry *types.DownloadEntry) float64 {
 	if entry.Status != "completed" {
 		return 0
 	}
@@ -443,7 +443,7 @@ func (s *LocalDownloadService) List(ctx context.Context) ([]types.DownloadStatus
 				TotalSize:   d.TotalSize,
 				Downloaded:  d.Downloaded,
 				Progress:    progress,
-				Speed:       completedSpeedMBps(d),
+				Speed:       completedSpeedMBps(&d),
 				Connections: 0,
 				TimeTaken:   d.TimeTaken,
 				AvgSpeed:    d.AvgSpeed,
@@ -515,7 +515,7 @@ func (s *LocalDownloadService) add(ctx context.Context, url string, path string,
 		SupportsRange:      supportsRange,
 	}
 
-	s.Pool.Add(cfg)
+	s.Pool.Add(&cfg)
 
 	return id, nil
 }
@@ -620,7 +620,7 @@ func (s *LocalDownloadService) GetStatus(ctx context.Context, id string) (*types
 			TotalSize:  entry.TotalSize,
 			Downloaded: entry.Downloaded,
 			Progress:   progress,
-			Speed:      completedSpeedMBps(*entry),
+			Speed:      completedSpeedMBps(entry),
 			Status:     entry.Status,
 			TimeTaken:  entry.TimeTaken,
 			AvgSpeed:   entry.AvgSpeed,

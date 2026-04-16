@@ -428,7 +428,7 @@ func LoadMasterList(ctx context.Context) (*types.MasterList, error) {
 }
 
 // AddToMasterList adds or updates a download entry
-func AddToMasterList(ctx context.Context, entry types.DownloadEntry) error {
+func AddToMasterList(ctx context.Context, entry *types.DownloadEntry) error {
 	// Ensure ID
 	if entry.ID == "" {
 		if entry.URLHash != "" {

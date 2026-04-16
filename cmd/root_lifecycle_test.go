@@ -79,12 +79,12 @@ func (s *countingLifecycleService) StreamEvents(context.Context) (<-chan interfa
 }
 
 func TestBuildPoolIsNameActive(t *testing.T) {
-	getAll := func() []types.DownloadConfig {
+	getAll := func() []*types.DownloadConfig {
 		state := types.NewProgressState("dl-2", 0)
 		state.SetFilename("from-state.iso")
 		state.SetDestPath("/downloads/from-state.iso")
 
-		return []types.DownloadConfig{
+		return []*types.DownloadConfig{
 			{Filename: "queued.zip", OutputPath: "/downloads"},
 			{DestPath: "/downloads/from-path.mp4"},
 			{State: state},
@@ -111,8 +111,8 @@ func TestBuildPoolIsNameActive(t *testing.T) {
 }
 
 func TestNewLocalLifecycleManager_WiresNameActivityCheck(t *testing.T) {
-	getAll := func() []types.DownloadConfig {
-		return []types.DownloadConfig{{Filename: "active.bin", OutputPath: "."}}
+	getAll := func() []*types.DownloadConfig {
+		return []*types.DownloadConfig{{Filename: "active.bin", OutputPath: "."}}
 	}
 
 	mgr := newLocalLifecycleManager(nil, getAll)

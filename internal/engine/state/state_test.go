@@ -433,7 +433,7 @@ func TestUpdateStatus(t *testing.T) {
 		Status:   "downloading",
 	}
 
-	if err := AddToMasterList(context.Background(), entry); err != nil {
+	if err := AddToMasterList(context.Background(), &entry); err != nil {
 		t.Fatalf("AddToMasterList failed: %v", err)
 	}
 	d := getDBHelper(context.Background())
@@ -470,7 +470,7 @@ func TestUpdateStatus_NotFound(t *testing.T) {
 func seedTestDownloads(t *testing.T, entries []types.DownloadEntry) {
 	t.Helper()
 	for _, e := range entries {
-		if err := AddToMasterList(context.Background(), e); err != nil {
+		if err := AddToMasterList(context.Background(), &e); err != nil {
 			t.Fatalf("AddToMasterList failed: %v", err)
 		}
 	}
@@ -544,7 +544,7 @@ func TestListAllDownloads(t *testing.T) {
 	}
 
 	for _, e := range entries {
-		if err := AddToMasterList(context.Background(), e); err != nil {
+		if err := AddToMasterList(context.Background(), &e); err != nil {
 			t.Fatalf("AddToMasterList failed: %v", err)
 		}
 	}
@@ -592,7 +592,7 @@ func TestRemoveCompletedDownloads(t *testing.T) {
 	}
 
 	for _, e := range entries {
-		if err := AddToMasterList(context.Background(), e); err != nil {
+		if err := AddToMasterList(context.Background(), &e); err != nil {
 			t.Fatalf("AddToMasterList failed: %v", err)
 		}
 	}
@@ -667,7 +667,7 @@ func TestMirrorsPersistence(t *testing.T) {
 		CompletedAt: time.Now().Unix(),
 	}
 
-	if err := AddToMasterList(context.Background(), entry); err != nil {
+	if err := AddToMasterList(context.Background(), &entry); err != nil {
 		t.Fatalf("AddToMasterList failed: %v", err)
 	}
 
@@ -711,7 +711,7 @@ func TestValidateIntegrity_MissingFile(t *testing.T) {
 		Filename: "missing.zip",
 		Status:   "paused",
 	}
-	if err := AddToMasterList(context.Background(), entry); err != nil {
+	if err := AddToMasterList(context.Background(), &entry); err != nil {
 		t.Fatalf("AddToMasterList failed: %v", err)
 	}
 
@@ -770,7 +770,7 @@ func TestValidateIntegrity_ValidFile(t *testing.T) {
 	}
 
 	// Insert a paused download with correct file hash
-	if err := AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:       "integrity-valid",
 		URL:      "https://example.com/valid.zip",
 		DestPath: destPath,
@@ -822,7 +822,7 @@ func TestValidateIntegrity_TamperedFile(t *testing.T) {
 	}
 
 	// Insert entry with a WRONG hash (simulating tampering)
-	if err := AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:       "integrity-tampered",
 		URL:      "https://example.com/tampered.zip",
 		DestPath: destPath,
@@ -863,7 +863,7 @@ func TestValidateIntegrity_CompletedIgnored(t *testing.T) {
 	defer CloseDB()
 
 	// Insert a completed download — should NOT be touched by integrity check
-	if err := AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:          "integrity-completed",
 		URL:         "https://example.com/done.zip",
 		DestPath:    filepath.Join(tmpDir, "done.zip"),
@@ -896,7 +896,7 @@ func TestValidateIntegrity_QueuedWithoutPartialFileRemoved(t *testing.T) {
 
 	destPath := filepath.Join(tmpDir, "queued-never-started.bin")
 
-	if err := AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:         "integrity-queued-fresh",
 		URL:        "https://example.com/queued-never-started.bin",
 		DestPath:   destPath,
@@ -931,7 +931,7 @@ func TestValidateIntegrity_DeletesOrphanSurgeFile(t *testing.T) {
 	defer CloseDB()
 
 	// Seed one normal completed entry so tmpDir is a known download directory.
-	if err := AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:          "integrity-known-dir",
 		URL:         "https://example.com/known.zip",
 		DestPath:    filepath.Join(tmpDir, "known.zip"),
@@ -968,7 +968,7 @@ func TestValidateIntegrity_PreservesNonCompletedSurgeFile(t *testing.T) {
 	destPath := filepath.Join(tmpDir, "active.bin")
 	surgePath := destPath + types.IncompleteSuffix
 
-	if err := AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:       "integrity-active",
 		URL:      "https://example.com/active.bin",
 		DestPath: destPath,
@@ -1017,7 +1017,7 @@ func TestAvgSpeedPersistence(t *testing.T) {
 		AvgSpeed:    10.0 * 1024.0 * 1024.0, // 10 MB/s
 	}
 
-	if err := AddToMasterList(context.Background(), entry); err != nil {
+	if err := AddToMasterList(context.Background(), &entry); err != nil {
 		t.Fatalf("AddToMasterList failed: %v", err)
 	}
 
@@ -1066,7 +1066,7 @@ func TestNormalizeStaleDownloads(t *testing.T) {
 		{ID: "ok-5", URL: "https://a.com/5", DestPath: "/tmp/5", Status: "queued"},
 	}
 	for _, e := range entries {
-		if err := AddToMasterList(context.Background(), e); err != nil {
+		if err := AddToMasterList(context.Background(), &e); err != nil {
 			t.Fatalf("AddToMasterList failed: %v", err)
 		}
 	}

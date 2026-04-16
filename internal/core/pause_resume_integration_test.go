@@ -485,7 +485,7 @@ func TestIntegration_PauseResume_ResumeBatchRejectsPausing(t *testing.T) {
 	if f, err := os.Create(destPath + ".surge"); err == nil { //nolint:gosec // mock file
 		_ = f.Close()
 	}
-	pool.Add(types.DownloadConfig{
+	pool.Add(&types.DownloadConfig{
 		ID:       id,
 		URL:      "http://example.com/file.bin",
 		DestPath: destPath,

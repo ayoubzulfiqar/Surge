@@ -610,7 +610,7 @@ func TestLifecycleManager_Resume_HotPath(t *testing.T) {
 			extractCalled = true
 			return &types.DownloadConfig{ID: "hot-id", Filename: "hot-file.zip"}
 		},
-		AddConfig: func(cfg types.DownloadConfig) {
+		AddConfig: func(cfg *types.DownloadConfig) {
 			addCalled = true
 			if cfg.ID != "hot-id" {
 				t.Errorf("AddConfig ID = %q, want hot-id", cfg.ID)
@@ -668,7 +668,7 @@ func TestLifecycleManager_Resume_ColdPath(t *testing.T) {
 	mgr := newLifecycleManagerForTest()
 	mgr.SetEngineHooks(EngineHooks{
 		ExtractPausedConfig: func(id string) *types.DownloadConfig { return nil },
-		AddConfig: func(cfg types.DownloadConfig) {
+		AddConfig: func(cfg *types.DownloadConfig) {
 			addCalled = true
 			if cfg.ID != "cold-id" {
 				t.Errorf("AddConfig ID = %q, want cold-id", cfg.ID)
@@ -774,7 +774,7 @@ func TestLifecycleManager_Resume_HydratesFromDisk(t *testing.T) {
 		ExtractPausedConfig: func(id string) *types.DownloadConfig {
 			return &types.DownloadConfig{ID: id, Filename: "hydrated.zip", URL: "http://example.com/hydrated.zip", DestPath: destPath}
 		},
-		AddConfig: func(cfg types.DownloadConfig) { addedCfg = &cfg },
+		AddConfig: func(cfg *types.DownloadConfig) { addedCfg = cfg },
 	})
 
 	if err := mgr.Resume(context.Background(), "hydrate-id"); err != nil {

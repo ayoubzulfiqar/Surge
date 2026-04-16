@@ -71,7 +71,7 @@ var (
 	globalEnqueueMu         sync.Mutex
 )
 
-func buildPoolIsNameActive(getAll func() []types.DownloadConfig) processing.IsNameActiveFunc {
+func buildPoolIsNameActive(getAll func() []*types.DownloadConfig) processing.IsNameActiveFunc {
 	if getAll == nil {
 		return nil
 	}
@@ -114,7 +114,7 @@ func buildPoolIsNameActive(getAll func() []types.DownloadConfig) processing.IsNa
 	}
 }
 
-func newLocalLifecycleManager(service core.DownloadService, getAll func() []types.DownloadConfig) *processing.LifecycleManager {
+func newLocalLifecycleManager(service core.DownloadService, getAll func() []*types.DownloadConfig) *processing.LifecycleManager {
 	var addFunc processing.AddDownloadFunc
 	var addWithIDFunc processing.AddDownloadWithIDFunc
 	if service != nil {
@@ -190,7 +190,7 @@ func takeLifecycleCleanup() func() {
 	return cleanup
 }
 
-func currentPoolConfigs() []types.DownloadConfig {
+func currentPoolConfigs() []*types.DownloadConfig {
 	if GlobalPool == nil {
 		return nil
 	}
@@ -266,7 +266,7 @@ func recordPreflightDownloadError(ctx context.Context, url, outPath string, err 
 		Filename: filename,
 		Status:   "error",
 	}
-	if addErr := state.AddToMasterList(ctx, entry); addErr != nil {
+	if addErr := state.AddToMasterList(ctx, &entry); addErr != nil {
 		utils.Debug("Failed to persist preflight download error for %s: %v", url, addErr)
 	}
 	if GlobalService != nil {
@@ -279,7 +279,7 @@ func recordPreflightDownloadError(ctx context.Context, url, outPath string, err 
 	}
 }
 
-func ensureLocalLifecycle(ctx context.Context, service core.DownloadService, getAll func() []types.DownloadConfig) (*processing.LifecycleManager, error) {
+func ensureLocalLifecycle(ctx context.Context, service core.DownloadService, getAll func() []*types.DownloadConfig) (*processing.LifecycleManager, error) {
 	globalLifecycleMu.Lock()
 	defer globalLifecycleMu.Unlock()
 

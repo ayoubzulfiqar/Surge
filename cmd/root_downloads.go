@@ -179,8 +179,7 @@ func resolveDuplicateState(ctx context.Context, urlForAdd string, settings *conf
 	activeDownloadsFunc := func() map[string]*types.DownloadConfig {
 		active := make(map[string]*types.DownloadConfig)
 		for _, cfg := range GlobalPool.GetAll() {
-			c := cfg
-			active[c.ID] = &c
+			active[cfg.ID] = cfg
 		}
 		return active
 	}

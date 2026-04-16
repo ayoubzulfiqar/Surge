@@ -113,7 +113,7 @@ func TestResolveDownloadID_StrictRemoteDoesNotFallbackToDBOnRemoteError(t *testi
 		ID:       "11223344-1234-5678-90ab-cdef12345678",
 		Filename: "db-only.bin",
 	}
-	if err := state.AddToMasterList(context.Background(), entry); err != nil {
+	if err := state.AddToMasterList(context.Background(), &entry); err != nil {
 		t.Fatalf("failed to seed db entry: %v", err)
 	}
 
@@ -152,7 +152,7 @@ func TestResolveDownloadID_LocalModeFallsBackToDBWhenRemoteListFails(t *testing.
 		ID:       "99aabbcc-1234-5678-90ab-cdef12345678",
 		Filename: "fallback.bin",
 	}
-	if err := state.AddToMasterList(context.Background(), entry); err != nil {
+	if err := state.AddToMasterList(context.Background(), &entry); err != nil {
 		t.Fatalf("failed to seed db entry: %v", err)
 	}
 
@@ -414,7 +414,7 @@ func TestPrintDownloadDetail_TextAndJSON(t *testing.T) {
 	}
 
 	textOut := captureStdout(t, func() {
-		printDownloadDetail(status, false)
+		printDownloadDetail(&status, false)
 	})
 	if !strings.Contains(textOut, "ID:         "+status.ID) {
 		t.Fatalf("expected text output to contain ID, got: %s", textOut)
@@ -427,7 +427,7 @@ func TestPrintDownloadDetail_TextAndJSON(t *testing.T) {
 	}
 
 	jsonOut := captureStdout(t, func() {
-		printDownloadDetail(status, true)
+		printDownloadDetail(&status, true)
 	})
 	var decoded types.DownloadStatus
 	if err := json.Unmarshal([]byte(jsonOut), &decoded); err != nil {
@@ -452,7 +452,7 @@ func TestRmClean_Offline_Works(t *testing.T) {
 		Downloaded:  100,
 		CompletedAt: 1,
 	}
-	if err := state.AddToMasterList(context.Background(), completed); err != nil {
+	if err := state.AddToMasterList(context.Background(), &completed); err != nil {
 		t.Fatalf("failed to seed completed download: %v", err)
 	}
 
@@ -642,7 +642,7 @@ func TestActionCommandsRunE_ReturnAmbiguousIDErrors(t *testing.T) {
 				{ID: "deadbead-1234-5678-90ab-cdef12345678", Filename: "second.bin"},
 			}
 			for _, entry := range entries {
-				if err := state.AddToMasterList(context.Background(), entry); err != nil {
+				if err := state.AddToMasterList(context.Background(), &entry); err != nil {
 					t.Fatalf("failed to seed db entry %s: %v", entry.ID, err)
 				}
 			}
@@ -670,7 +670,7 @@ func TestPrintDownloads_FromDatabase_TableAndJSON(t *testing.T) {
 		Downloaded: 512,
 		TotalSize:  1024,
 	}
-	if err := state.AddToMasterList(context.Background(), entry); err != nil {
+	if err := state.AddToMasterList(context.Background(), &entry); err != nil {
 		t.Fatalf("failed to seed db entry: %v", err)
 	}
 
@@ -736,7 +736,7 @@ func TestPrintDownloads_StrictRemoteEmpty_DoesNotFallbackToDB(t *testing.T) {
 		Filename: "local-only.bin",
 		Status:   "completed",
 	}
-	if err := state.AddToMasterList(context.Background(), entry); err != nil {
+	if err := state.AddToMasterList(context.Background(), &entry); err != nil {
 		t.Fatalf("failed to seed local db entry: %v", err)
 	}
 
@@ -772,7 +772,7 @@ func TestShowDownloadDetails_UsesDatabaseFallback(t *testing.T) {
 		Downloaded: 250,
 		TotalSize:  500,
 	}
-	if err := state.AddToMasterList(context.Background(), entry); err != nil {
+	if err := state.AddToMasterList(context.Background(), &entry); err != nil {
 		t.Fatalf("failed to seed db entry: %v", err)
 	}
 

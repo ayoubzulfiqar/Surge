@@ -25,7 +25,7 @@ type EngineHooks struct {
 	// GetStatus returns the in-memory status for a download.
 	GetStatus func(id string) *types.DownloadStatus
 	// AddConfig enqueues a DownloadConfig. The pool sets cfg.ProgressCh when nil.
-	AddConfig func(cfg types.DownloadConfig)
+	AddConfig func(cfg *types.DownloadConfig)
 	// Cancel mechanically removes a download from the pool and returns removal metadata.
 	Cancel func(ctx context.Context, id string) types.CancelResult
 	// UpdateURL updates the in-memory URL only; LifecycleManager persists to DB.
@@ -102,7 +102,7 @@ func (mgr *LifecycleManager) Resume(ctx context.Context, id string) error {
 			hydrateConfigFromDisk(ctx, cfg)
 			cfg.IsResume = true
 			if hooks.AddConfig != nil {
-				hooks.AddConfig(*cfg)
+				hooks.AddConfig(cfg)
 			}
 			if hooks.PublishEvent != nil {
 				_ = hooks.PublishEvent(events.DownloadResumedMsg{
@@ -139,7 +139,7 @@ func (mgr *LifecycleManager) Resume(ctx context.Context, id string) error {
 	cfg := buildResumeConfig(id, outputPath, entry, savedState, settings)
 
 	if hooks.AddConfig != nil {
-		hooks.AddConfig(cfg)
+		hooks.AddConfig(&cfg)
 	}
 	if hooks.PublishEvent != nil {
 		_ = hooks.PublishEvent(events.DownloadResumedMsg{
@@ -180,7 +180,7 @@ func (mgr *LifecycleManager) ResumeBatch(ctx context.Context, ids []string) []er
 				hydrateConfigFromDisk(ctx, cfg)
 				cfg.IsResume = true
 				if hooks.AddConfig != nil {
-					hooks.AddConfig(*cfg)
+					hooks.AddConfig(cfg)
 				}
 				if hooks.PublishEvent != nil {
 					_ = hooks.PublishEvent(events.DownloadResumedMsg{
@@ -221,7 +221,7 @@ func (mgr *LifecycleManager) ResumeBatch(ctx context.Context, ids []string) []er
 
 		cfg := buildResumeConfig(id, outputPath, nil, savedState, settings)
 		if hooks.AddConfig != nil {
-			hooks.AddConfig(cfg)
+			hooks.AddConfig(&cfg)
 		}
 		if hooks.PublishEvent != nil {
 			_ = hooks.PublishEvent(events.DownloadResumedMsg{

@@ -14,18 +14,18 @@ import (
 
 // activeDownload tracks a download that's currently running
 type activeDownload struct {
-	config types.DownloadConfig
+	config *types.DownloadConfig
 	cancel context.CancelFunc
 	// running is true while the worker goroutine is executing TUIDownload for this config.
 	running atomic.Bool
 }
 
 type WorkerPool struct {
-	taskChan     chan types.DownloadConfig
+	taskChan     chan *types.DownloadConfig
 	progressCh   chan<- any
 	progressDone chan struct{}                   // closed when progressCh must no longer be sent to
 	downloads    map[string]*activeDownload      // Track active downloads for pause/resume
-	queued       map[string]types.DownloadConfig // Track queued downloads
+	queued       map[string]*types.DownloadConfig // Track queued downloads
 	mu           sync.RWMutex
 	wg           sync.WaitGroup // We use this to wait for all active downloads to pause before exiting the program
 	maxDownloads int
@@ -51,11 +51,11 @@ func NewWorkerPool(progressCh chan<- any, maxDownloads int) *WorkerPool {
 		maxDownloads = 3 // Default to 3 if invalid
 	}
 	pool := &WorkerPool{
-		taskChan:     make(chan types.DownloadConfig, 100), // We make it buffered to avoid blocking add
+		taskChan:     make(chan *types.DownloadConfig, 100), // We make it buffered to avoid blocking add
 		progressCh:   progressCh,
 		progressDone: make(chan struct{}),
 		downloads:    make(map[string]*activeDownload),
-		queued:       make(map[string]types.DownloadConfig),
+		queued:       make(map[string]*types.DownloadConfig),
 		maxDownloads: maxDownloads,
 	}
 	for i := 0; i < maxDownloads; i++ {
@@ -101,7 +101,7 @@ func resolveDestPath(cfg *types.DownloadConfig) string {
 
 // Add adds a new download task to the pool. The caller (LifecycleManager) is
 // responsible for emitting any lifecycle events (e.g. DownloadQueuedMsg).
-func (p *WorkerPool) Add(cfg types.DownloadConfig) {
+func (p *WorkerPool) Add(cfg *types.DownloadConfig) {
 	if cfg.ProgressCh == nil {
 		cfg.ProgressCh = p.progressCh
 	}
@@ -150,14 +150,14 @@ func (p *WorkerPool) ActiveCount() int {
 }
 
 // GetAll returns all active download configs (for listing)
-func (p *WorkerPool) GetAll() []types.DownloadConfig {
+func (p *WorkerPool) GetAll() []*types.DownloadConfig {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	configs := make([]types.DownloadConfig, 0, len(p.downloads)+len(p.queued))
+	configs := make([]*types.DownloadConfig, 0, len(p.downloads)+len(p.queued))
 	for _, ad := range p.downloads {
 		cfg := ad.config
-		syncConfigFromState(&cfg)
+		syncConfigFromState(cfg)
 		configs = append(configs, cfg)
 	}
 	for _, cfg := range p.queued {
@@ -243,7 +243,7 @@ func (p *WorkerPool) Cancel(ctx context.Context, downloadID string) types.Cancel
 
 	if activeExists && ad != nil {
 		result.Filename = ad.config.Filename
-		result.DestPath = resolveDestPath(&ad.config)
+		result.DestPath = resolveDestPath(ad.config)
 		result.Completed = ad.config.State != nil && ad.config.State.Done.Load()
 
 		// Cancel the context to stop workers
@@ -264,7 +264,7 @@ func (p *WorkerPool) Cancel(ctx context.Context, downloadID string) types.Cancel
 		}
 	} else if queuedExists {
 		result.Filename = qCfg.Filename
-		result.DestPath = resolveDestPath(&qCfg)
+		result.DestPath = resolveDestPath(qCfg)
 	}
 
 	return result
@@ -288,14 +288,14 @@ func (p *WorkerPool) ExtractPausedConfig(downloadID string) *types.DownloadConfi
 	}
 
 	// Sync latest filename/path/mirrors from live state before handing off
-	syncConfigFromState(&ad.config)
+	syncConfigFromState(ad.config)
 
 	cfg := ad.config
 	delete(p.downloads, downloadID)
 	if ad.config.State != nil {
 		ad.config.State.Resume()
 	}
-	return &cfg
+	return cfg
 }
 
 // UpdateURL updates the in-memory URL of a download by ID.
@@ -356,7 +356,7 @@ func (p *WorkerPool) worker() {
 		p.downloads[cfg.ID] = ad
 		p.mu.Unlock()
 
-		err := TUIDownload(ctx, &ad.config)
+		err := TUIDownload(ctx, ad.config)
 		ad.running.Store(false)
 
 		// Logic:
@@ -417,7 +417,7 @@ func (p *WorkerPool) GetStatus(id string) *types.DownloadStatus {
 			ID:         id,
 			URL:        qCfg.URL,
 			Filename:   qCfg.Filename,
-			DestPath:   resolveDestPath(&qCfg),
+			DestPath:   resolveDestPath(qCfg),
 			Status:     "queued",
 			Downloaded: 0,
 			TotalSize:  0, // Metadata not yet fetched

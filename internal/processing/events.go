@@ -99,7 +99,7 @@ func (mgr *LifecycleManager) StartEventWorker(ctx context.Context, ch <-chan int
 					entry.TimeTaken = existing.TimeTaken
 				}
 			}
-			if err := state.AddToMasterList(ctx, entry); err != nil {
+			if err := state.AddToMasterList(ctx, &entry); err != nil {
 				utils.Debug("Lifecycle: Failed to save initial download state: %v", err)
 			}
 
@@ -116,7 +116,7 @@ func (mgr *LifecycleManager) StartEventWorker(ctx context.Context, ch <-chan int
 				if m.Downloaded > 0 {
 					entry.Downloaded = m.Downloaded
 				}
-				if err := state.AddToMasterList(ctx, entry); err != nil {
+				if err := state.AddToMasterList(ctx, &entry); err != nil {
 					utils.Debug("Lifecycle: Failed to persist paused fallback entry: %v", err)
 				}
 
@@ -185,7 +185,7 @@ func (mgr *LifecycleManager) StartEventWorker(ctx context.Context, ch <-chan int
 				entry.URL = existing.URL
 				entry.URLHash = existing.URLHash
 			}
-			if err := state.AddToMasterList(ctx, entry); err != nil {
+			if err := state.AddToMasterList(ctx, &entry); err != nil {
 				utils.Debug("Lifecycle: Failed to persist paused state: %v", err)
 			}
 
@@ -227,7 +227,7 @@ func (mgr *LifecycleManager) StartEventWorker(ctx context.Context, ch <-chan int
 			// finalization failure must stay retryable instead of being recorded as done.
 			if err := finalizeCompletedFile(destPath); err != nil {
 				utils.Debug("Lifecycle: Failed to finalize completed file at %s: %v", destPath, err)
-				if err := state.AddToMasterList(ctx, types.DownloadEntry{
+				if err := state.AddToMasterList(ctx, &types.DownloadEntry{
 					ID:         m.DownloadID,
 					URL:        url,
 					URLHash:    urlHash,
@@ -254,7 +254,7 @@ func (mgr *LifecycleManager) StartEventWorker(ctx context.Context, ch <-chan int
 				break
 			}
 
-			if err := state.AddToMasterList(ctx, types.DownloadEntry{
+			if err := state.AddToMasterList(ctx, &types.DownloadEntry{
 				ID:          m.DownloadID,
 				URL:         url,
 				URLHash:     urlHash,
@@ -295,7 +295,7 @@ func (mgr *LifecycleManager) StartEventWorker(ctx context.Context, ch <-chan int
 			destPath := m.DestPath
 			if existing != nil {
 				existing.Status = "error"
-				if err := state.AddToMasterList(ctx, *existing); err != nil {
+				if err := state.AddToMasterList(ctx, existing); err != nil {
 					utils.Debug("Lifecycle: Failed to persist error state: %v", err)
 				}
 				if existing.DestPath != "" {
@@ -346,7 +346,7 @@ func (mgr *LifecycleManager) StartEventWorker(ctx context.Context, ch <-chan int
 		case events.DownloadQueuedMsg:
 			// Queue persistence is what lets downloads survive shutdown before any worker
 			// has emitted a started event.
-			if err := state.AddToMasterList(ctx, types.DownloadEntry{
+			if err := state.AddToMasterList(ctx, &types.DownloadEntry{
 				ID:       m.DownloadID,
 				URL:      m.URL,
 				URLHash:  state.URLHash(m.URL),

@@ -72,7 +72,7 @@ func TestStartEventWorker_MarksCompletionAsErrorWhenFinalizationFails(t *testing
 		t.Fatalf("failed to create working file: %v", err)
 	}
 
-	if err := state.AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := state.AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:       "download-1",
 		URL:      "https://example.com/video.mp4",
 		URLHash:  state.URLHash("https://example.com/video.mp4"),
@@ -184,7 +184,7 @@ func TestStartEventWorker_SuppressesNotificationWhenSettingDisabled(t *testing.T
 		t.Fatalf("failed to create working file: %v", err)
 	}
 
-	if err := state.AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := state.AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:       "download-1",
 		URL:      "https://example.com/video.mp4",
 		URLHash:  state.URLHash("https://example.com/video.mp4"),
@@ -234,7 +234,7 @@ func TestStartEventWorker_CompletionNotificationUsesGenericMessageWhenElapsedZer
 		t.Fatalf("failed to create working file: %v", err)
 	}
 
-	if err := state.AddToMasterList(context.Background(), types.DownloadEntry{
+	if err := state.AddToMasterList(context.Background(), &types.DownloadEntry{
 		ID:       "download-1",
 		URL:      "https://example.com/video.mp4",
 		URLHash:  state.URLHash("https://example.com/video.mp4"),
