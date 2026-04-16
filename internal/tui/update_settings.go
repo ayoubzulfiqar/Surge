@@ -85,8 +85,9 @@ func (m RootModel) updateSettings(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		settingKey := m.getCurrentSettingKey()
 		if settingKey == "default_download_dir" {
 			m.SettingsFileBrowsing = true
+			m.filepickerOriginalPath = m.Settings.General.DefaultDownloadDir
 			m.state = FilePickerState
-			m.filepicker = newFilepicker(m.Settings.General.DefaultDownloadDir)
+			m.filepicker = newFilepicker(m.filepickerOriginalPath)
 			return m, m.filepicker.Init()
 		}
 		return m, nil
@@ -166,7 +167,7 @@ func (m RootModel) updateSettings(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.SettingsIsEditing = true
 			// Pre-fill with current value (without units)
 			values := m.getSettingsValues(currentCategory)
-			m.SettingsInput.SetValue(formatSettingValueForEdit(values[settingKey], typ, settingKey))
+			m.SettingsInput.SetValue(formatSettingValueForEdit(values[settingKey], typ, settingKey, false))
 			m.updateSettingsInputWidthForViewport()
 			m.SettingsInput.Focus()
 		}
