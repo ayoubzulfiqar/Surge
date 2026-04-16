@@ -4,6 +4,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	"charm.land/bubbles/v2/list"
 	tea "charm.land/bubbletea/v2"
+	"context"
 	"github.com/SurgeDM/Surge/internal/clipboard"
 	"github.com/SurgeDM/Surge/internal/config"
 	"github.com/SurgeDM/Surge/internal/engine/types"
@@ -121,7 +122,7 @@ func (m RootModel) updateDashboard(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			targetID := d.ID
 
 			// Call Service Delete
-			if err := m.Service.Delete(targetID); err != nil {
+			if err := m.Service.Delete(context.Background(), targetID); err != nil {
 				m.addLogEntry(LogStyleError.Render("✖ Delete failed: " + err.Error()))
 			} else {
 				m.removeDownloadByID(targetID)
@@ -143,14 +144,14 @@ func (m RootModel) updateDashboard(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 					// Resume
 					d.paused = false
 					d.resuming = true
-					if err := m.Service.Resume(d.ID); err != nil {
+					if err := m.Service.Resume(context.Background(), d.ID); err != nil {
 						m.addLogEntry(LogStyleError.Render("✖ Resume failed: " + err.Error()))
 						d.paused = true // Revert
 						d.resuming = false
 					}
 				} else {
 					// Pause
-					if err := m.Service.Pause(d.ID); err != nil {
+					if err := m.Service.Pause(context.Background(), d.ID); err != nil {
 						m.addLogEntry(LogStyleError.Render("✖ Pause failed: " + err.Error()))
 					} else {
 						d.resuming = false

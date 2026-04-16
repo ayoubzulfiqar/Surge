@@ -1,6 +1,7 @@
 package processing
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -71,7 +72,7 @@ func TestStartEventWorker_MarksCompletionAsErrorWhenFinalizationFails(t *testing
 		t.Fatalf("failed to create working file: %v", err)
 	}
 
-	if err := state.AddToMasterList(types.DownloadEntry{
+	if err := state.AddToMasterList(context.Background(), types.DownloadEntry{
 		ID:       "download-1",
 		URL:      "https://example.com/video.mp4",
 		URLHash:  state.URLHash("https://example.com/video.mp4"),
@@ -120,9 +121,9 @@ func TestStartEventWorker_MarksCompletionAsErrorWhenFinalizationFails(t *testing
 	}
 	close(ch)
 
-	mgr.StartEventWorker(ch)
+	mgr.StartEventWorker(context.Background(), ch)
 
-	entry, err := state.GetDownload("download-1")
+	entry, err := state.GetDownload(context.Background(), "download-1")
 	if err != nil {
 		t.Fatalf("failed to reload entry: %v", err)
 	}
@@ -167,7 +168,7 @@ func TestStartEventWorker_RemovesIncompleteFileOnErrorWithoutDBEntry(t *testing.
 	}
 	close(ch)
 
-	mgr.StartEventWorker(ch)
+	mgr.StartEventWorker(context.Background(), ch)
 
 	if _, err := os.Stat(surgePath); !os.IsNotExist(err) {
 		t.Fatalf("expected working file to be removed even without DB entry, stat err: %v", err)
@@ -183,7 +184,7 @@ func TestStartEventWorker_SuppressesNotificationWhenSettingDisabled(t *testing.T
 		t.Fatalf("failed to create working file: %v", err)
 	}
 
-	if err := state.AddToMasterList(types.DownloadEntry{
+	if err := state.AddToMasterList(context.Background(), types.DownloadEntry{
 		ID:       "download-1",
 		URL:      "https://example.com/video.mp4",
 		URLHash:  state.URLHash("https://example.com/video.mp4"),
@@ -217,7 +218,7 @@ func TestStartEventWorker_SuppressesNotificationWhenSettingDisabled(t *testing.T
 	}
 	close(ch)
 
-	mgr.StartEventWorker(ch)
+	mgr.StartEventWorker(context.Background(), ch)
 
 	if calls != 0 {
 		t.Fatalf("notification calls = %d, want 0", calls)
@@ -233,7 +234,7 @@ func TestStartEventWorker_CompletionNotificationUsesGenericMessageWhenElapsedZer
 		t.Fatalf("failed to create working file: %v", err)
 	}
 
-	if err := state.AddToMasterList(types.DownloadEntry{
+	if err := state.AddToMasterList(context.Background(), types.DownloadEntry{
 		ID:       "download-1",
 		URL:      "https://example.com/video.mp4",
 		URLHash:  state.URLHash("https://example.com/video.mp4"),
@@ -275,7 +276,7 @@ func TestStartEventWorker_CompletionNotificationUsesGenericMessageWhenElapsedZer
 	}
 	close(ch)
 
-	mgr.StartEventWorker(ch)
+	mgr.StartEventWorker(context.Background(), ch)
 
 	if len(calls) != 1 {
 		t.Fatalf("notification calls = %d, want 1", len(calls))
@@ -320,7 +321,7 @@ func TestStartEventWorker_ErrorNotificationFallsBackToDownloadID(t *testing.T) {
 	}
 	close(ch)
 
-	mgr.StartEventWorker(ch)
+	mgr.StartEventWorker(context.Background(), ch)
 
 	if len(calls) != 1 {
 		t.Fatalf("notification calls = %d, want 1", len(calls))

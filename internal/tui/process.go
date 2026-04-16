@@ -146,7 +146,7 @@ func (m RootModel) startDownload(url string, mirrors []string, headers map[strin
 			err   error
 		)
 		if requestID != "" {
-			newID, err = m.Service.AddWithID(
+			newID, err = m.Service.AddWithID(context.Background(),
 				url,
 				resolvedPath,
 				resolvedFilename,
@@ -157,7 +157,7 @@ func (m RootModel) startDownload(url string, mirrors []string, headers map[strin
 				false,
 			)
 		} else {
-			newID, err = m.Service.Add(
+			newID, err = m.Service.Add(context.Background(),
 				url,
 				resolvedPath,
 				resolvedFilename,

@@ -57,7 +57,7 @@ func connectAndRunTUI(cmd *cobra.Command, target string) error {
 	fmt.Printf("Connecting to %s...\n", baseURL)
 
 	service := core.NewRemoteDownloadService(baseURL, token)
-	_, err = service.List()
+	_, err = service.List(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to connect: %w", err)
 	}

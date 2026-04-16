@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -127,14 +128,14 @@ func resolveDownloadDestPath(service core.DownloadService, id string) (string, e
 		return "", ErrServiceUnavailable
 	}
 
-	status, err := service.GetStatus(id)
+	status, err := service.GetStatus(context.Background(), id)
 	if err == nil && status != nil {
 		if destPath := filepath.Clean(status.DestPath); destPath != "" && destPath != "." {
 			return destPath, nil
 		}
 	}
 
-	history, err := service.History()
+	history, err := service.History(context.Background())
 	if err != nil {
 		return "", fmt.Errorf("failed to read history: %w", err)
 	}

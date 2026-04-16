@@ -453,7 +453,7 @@ func TestStartDownload_UsesModelEnqueueContext(t *testing.T) {
 	cancel()
 
 	orchestrator := processing.NewLifecycleManager(
-		func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+		func(_ context.Context, _ string, _ string, _ string, _ []string, _ map[string]string, _ bool, _ int64, _ bool) (string, error) {
 			t.Fatal("enqueue dispatch should not run after context cancellation")
 			return "", nil
 		},
@@ -496,7 +496,7 @@ func setupRootModelForStartDownload(t *testing.T) (RootModel, string) {
 	})
 
 	orchestrator := processing.NewLifecycleManager(
-		func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+		func(_ context.Context, _ string, _ string, _ string, _ []string, _ map[string]string, _ bool, _ int64, _ bool) (string, error) {
 			return "real-id", nil
 		},
 		nil,
@@ -800,7 +800,7 @@ func TestWithEnqueueContext_OverridesStartDownloadContext(t *testing.T) {
 	cancel()
 
 	orchestrator := processing.NewLifecycleManager(
-		func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+		func(_ context.Context, _ string, _ string, _ string, _ []string, _ map[string]string, _ bool, _ int64, _ bool) (string, error) {
 			t.Fatal("enqueue dispatch should not run after shared context cancellation")
 			return "", nil
 		},

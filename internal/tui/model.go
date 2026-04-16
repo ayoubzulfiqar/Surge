@@ -273,9 +273,9 @@ func InitialRootModel(serverPort int, currentVersion string, service core.Downlo
 	// For TUI initialization, we should probably call Service.List() to populate the model.
 	// However, Service.List() returns []DownloadStatus, which we need to convert to []*DownloadModel.
 
-	// Let's use service.List() if available
+	// Let's use service.List(context.Background()) if available
 	if service != nil {
-		statuses, err := service.List()
+		statuses, err := service.List(context.Background())
 		if err == nil {
 			for _, s := range statuses {
 				dm := NewDownloadModel(s.ID, s.URL, s.Filename, s.TotalSize)
@@ -452,7 +452,7 @@ func (m RootModel) Init() tea.Cmd {
 
 	if len(resumeIDs) > 0 && m.Service != nil {
 		cmds = append(cmds, func() tea.Msg {
-			errs := m.Service.ResumeBatch(resumeIDs)
+			errs := m.Service.ResumeBatch(context.Background(), resumeIDs)
 
 			// Dispatch individual messages for UI updates
 			batch := make([]tea.Cmd, 0, len(resumeIDs))

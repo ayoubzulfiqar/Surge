@@ -72,11 +72,11 @@ type LocalDownloadService struct {
 
 // LifecycleHooks routes service-level management calls through the LifecycleManager.
 type LifecycleHooks struct {
-	Pause       func(id string) error
-	Resume      func(id string) error
-	ResumeBatch func(ids []string) []error
-	Cancel      func(id string) error
-	UpdateURL   func(id, newURL string) error
+	Pause       func(ctx context.Context, id string) error
+	Resume      func(ctx context.Context, id string) error
+	ResumeBatch func(ctx context.Context, ids []string) []error
+	Cancel      func(ctx context.Context, id string) error
+	UpdateURL   func(ctx context.Context, id, newURL string) error
 }
 
 const (
@@ -350,7 +350,7 @@ func (s *LocalDownloadService) Shutdown() error {
 }
 
 // List returns the status of all active and completed downloads.
-func (s *LocalDownloadService) List() ([]types.DownloadStatus, error) {
+func (s *LocalDownloadService) List(ctx context.Context) ([]types.DownloadStatus, error) {
 	var statuses []types.DownloadStatus
 
 	// 1. Get active downloads from pool
@@ -412,7 +412,7 @@ func (s *LocalDownloadService) List() ([]types.DownloadStatus, error) {
 	}
 
 	// 2. Fetch from database for history/paused/completed
-	dbDownloads, err := state.ListAllDownloads()
+	dbDownloads, err := state.ListAllDownloads(ctx)
 	if err == nil {
 		// Create a map of existing IDs to avoid duplicates
 		existingIDs := make(map[string]bool)
@@ -454,17 +454,17 @@ func (s *LocalDownloadService) List() ([]types.DownloadStatus, error) {
 }
 
 // Add queues a new download on the local pool without TUI confirmation.
-func (s *LocalDownloadService) Add(url string, path string, filename string, mirrors []string, headers map[string]string, isExplicitCategory bool, totalSize int64, supportsRange bool) (string, error) {
-	return s.add(url, path, filename, mirrors, headers, "", isExplicitCategory, totalSize, supportsRange)
+func (s *LocalDownloadService) Add(ctx context.Context, url string, path string, filename string, mirrors []string, headers map[string]string, isExplicitCategory bool, totalSize int64, supportsRange bool) (string, error) {
+	return s.add(ctx, url, path, filename, mirrors, headers, "", isExplicitCategory, totalSize, supportsRange)
 }
 
 // AddWithID queues a new download using a caller-provided id when non-empty.
-func (s *LocalDownloadService) AddWithID(url string, path string, filename string, mirrors []string, headers map[string]string, id string, totalSize int64, supportsRange bool) (string, error) {
+func (s *LocalDownloadService) AddWithID(ctx context.Context, url string, path string, filename string, mirrors []string, headers map[string]string, id string, totalSize int64, supportsRange bool) (string, error) {
 	// Remote or RPC-driven calls use preset IDs and should bypass interactive category routing.
-	return s.add(url, path, filename, mirrors, headers, id, false, totalSize, supportsRange)
+	return s.add(ctx, url, path, filename, mirrors, headers, id, false, totalSize, supportsRange)
 }
 
-func (s *LocalDownloadService) add(url string, path string, filename string, mirrors []string, headers map[string]string, requestedID string, isExplicitCategory bool, totalSize int64, supportsRange bool) (string, error) {
+func (s *LocalDownloadService) add(ctx context.Context, url string, path string, filename string, mirrors []string, headers map[string]string, requestedID string, isExplicitCategory bool, totalSize int64, supportsRange bool) (string, error) {
 	if s.Pool == nil {
 		return "", errors.New("worker pool not initialized")
 	}
@@ -490,7 +490,7 @@ func (s *LocalDownloadService) add(url string, path string, filename string, mir
 	if st := s.Pool.GetStatus(id); st != nil {
 		return "", errors.New("download id already exists")
 	}
-	if entry, err := state.GetDownload(id); err != nil {
+	if entry, err := state.GetDownload(ctx, id); err != nil {
 		return "", fmt.Errorf("failed to query download state: %w", err)
 	} else if entry != nil {
 		return "", errors.New("download id already exists")
@@ -520,25 +520,25 @@ func (s *LocalDownloadService) add(url string, path string, filename string, mir
 }
 
 // Pause pauses an active download.
-func (s *LocalDownloadService) Pause(id string) error {
+func (s *LocalDownloadService) Pause(ctx context.Context, id string) error {
 	if s.lifecycleHooks.Pause != nil {
-		return s.lifecycleHooks.Pause(id)
+		return s.lifecycleHooks.Pause(ctx, id)
 	}
 	return errors.New("PauseFunc not initialized")
 }
 
 // Resume resumes a paused download.
-func (s *LocalDownloadService) Resume(id string) error {
+func (s *LocalDownloadService) Resume(ctx context.Context, id string) error {
 	if s.lifecycleHooks.Resume != nil {
-		return s.lifecycleHooks.Resume(id)
+		return s.lifecycleHooks.Resume(ctx, id)
 	}
 	return errors.New("ResumeFunc not initialized")
 }
 
 // ResumeBatch resumes multiple paused downloads efficiently.
-func (s *LocalDownloadService) ResumeBatch(ids []string) []error {
+func (s *LocalDownloadService) ResumeBatch(ctx context.Context, ids []string) []error {
 	if s.lifecycleHooks.ResumeBatch != nil {
-		return s.lifecycleHooks.ResumeBatch(ids)
+		return s.lifecycleHooks.ResumeBatch(ctx, ids)
 	}
 	errs := make([]error, len(ids))
 	for i := range errs {
@@ -554,28 +554,28 @@ func (s *LocalDownloadService) SetLifecycleHooks(hooks LifecycleHooks) {
 }
 
 // UpdateURL updates the URL of a paused or errored download
-func (s *LocalDownloadService) UpdateURL(id string, newURL string) error {
+func (s *LocalDownloadService) UpdateURL(ctx context.Context, id string, newURL string) error {
 	if s.lifecycleHooks.UpdateURL != nil {
-		return s.lifecycleHooks.UpdateURL(id, newURL)
+		return s.lifecycleHooks.UpdateURL(ctx, id, newURL)
 	}
 	// Fallback: update pool in-memory only (no DB persistence)
 	if s.Pool == nil {
 		return errors.New("worker pool not initialized")
 	}
-	return s.Pool.UpdateURL(id, newURL)
+	return s.Pool.UpdateURL(ctx, id, newURL)
 }
 
 // Delete cancels and removes a download.
-func (s *LocalDownloadService) Delete(id string) error {
+func (s *LocalDownloadService) Delete(ctx context.Context, id string) error {
 	if s.lifecycleHooks.Cancel != nil {
-		return s.lifecycleHooks.Cancel(id)
+		return s.lifecycleHooks.Cancel(ctx, id)
 	}
 	// Fallback when lifecycle hooks not wired (e.g. tests)
 	if s.Pool == nil {
 		return errors.New("worker pool not initialized")
 	}
-	s.Pool.Cancel(id)
-	if entry, err := state.GetDownload(id); err == nil && entry != nil {
+	s.Pool.Cancel(ctx, id)
+	if entry, err := state.GetDownload(ctx, id); err == nil && entry != nil {
 		if s.InputCh != nil {
 			s.InputCh <- events.DownloadRemovedMsg{
 				DownloadID: id,
@@ -589,7 +589,7 @@ func (s *LocalDownloadService) Delete(id string) error {
 }
 
 // GetStatus returns a status for a single download by id.
-func (s *LocalDownloadService) GetStatus(id string) (*types.DownloadStatus, error) {
+func (s *LocalDownloadService) GetStatus(ctx context.Context, id string) (*types.DownloadStatus, error) {
 	if id == "" {
 		return nil, errors.New("missing id")
 	}
@@ -603,7 +603,7 @@ func (s *LocalDownloadService) GetStatus(id string) (*types.DownloadStatus, erro
 	}
 
 	// 2. Fallback to DB
-	entry, err := state.GetDownload(id)
+	entry, err := state.GetDownload(ctx, id)
 	if err == nil && entry != nil {
 		var progress float64
 		if entry.TotalSize > 0 {
@@ -631,7 +631,7 @@ func (s *LocalDownloadService) GetStatus(id string) (*types.DownloadStatus, erro
 }
 
 // History returns completed downloads
-func (s *LocalDownloadService) History() ([]types.DownloadEntry, error) {
+func (s *LocalDownloadService) History(ctx context.Context) ([]types.DownloadEntry, error) {
 	// For local service, we can directly access the state DB
-	return state.LoadCompletedDownloads()
+	return state.LoadCompletedDownloads(ctx)
 }

@@ -16,7 +16,7 @@ func TestDBLifecycle(t *testing.T) {
 	defer CloseDB()
 
 	// Test GetDB (should be initialized by setupTestDB)
-	d, err := GetDB()
+	d, err := GetDB(context.Background())
 	if err != nil {
 		t.Fatalf("GetDB failed: %v", err)
 	}
@@ -25,7 +25,7 @@ func TestDBLifecycle(t *testing.T) {
 	}
 
 	// Test Singleton
-	d2, err := GetDB()
+	d2, err := GetDB(context.Background())
 	if err != nil {
 		t.Fatalf("GetDB 2 failed: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestDBLifecycle(t *testing.T) {
 
 	// Verify we can re-open after re-configuring path
 	Configure(filepath.Join(tempDir, "surge.db"))
-	d3, err := GetDB()
+	d3, err := GetDB(context.Background())
 	if err != nil {
 		t.Fatalf("Re-opening GetDB failed: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestWithTx_Commit(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 	defer CloseDB()
 
-	err := withTx(func(tx *sql.Tx) error {
+	err := withTx(context.Background(), func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(context.Background(), "INSERT INTO downloads (id, url, dest_path) VALUES (?, ?, ?)", "tx-test-1", "http://tx.com/1", "/tmp/1")
 		return err
 	})
@@ -83,7 +83,7 @@ func TestWithTx_Commit(t *testing.T) {
 	}
 
 	// Verify data persisted
-	d, _ := GetDB()
+	d, _ := GetDB(context.Background())
 	var url string
 	err = d.QueryRowContext(context.Background(), "SELECT url FROM downloads WHERE id = ?", "tx-test-1").Scan(&url)
 	if err != nil {
@@ -100,13 +100,13 @@ func TestWithTx_Rollback(t *testing.T) {
 	defer CloseDB()
 
 	// Ensure DB is clean
-	d, _ := GetDB()
+	d, _ := GetDB(context.Background())
 	if _, err := d.ExecContext(context.Background(), "DELETE FROM downloads"); err != nil {
 		t.Fatal(err)
 	}
 
 	expectedErr := errors.New("intentional error")
-	err := withTx(func(tx *sql.Tx) error {
+	err := withTx(context.Background(), func(tx *sql.Tx) error {
 		_, err := tx.ExecContext(context.Background(), "INSERT INTO downloads (id, url, dest_path) VALUES (?, ?, ?)", "tx-test-2", "http://tx.com/2", "/tmp/2")
 		if err != nil {
 			return err
@@ -152,7 +152,7 @@ func TestInitDB_createsDir(t *testing.T) {
 	Configure(dbPath)
 
 	// GetDB calls initDB
-	d, err := GetDB()
+	d, err := GetDB(context.Background())
 	if err != nil {
 		t.Fatalf("GetDB failed: %v", err)
 	}
@@ -169,7 +169,7 @@ func TestInitDB_CreatesTasksDownloadIDIndex(t *testing.T) {
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 	defer CloseDB()
 
-	d, err := GetDB()
+	d, err := GetDB(context.Background())
 	if err != nil {
 		t.Fatalf("GetDB failed: %v", err)
 	}

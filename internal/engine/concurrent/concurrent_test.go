@@ -617,7 +617,7 @@ func TestConcurrentDownloader_ResumePartialDownload(t *testing.T) {
 		Filename:   "resume_test.bin",
 		URLHash:    state.URLHash(server.URL()),
 	}
-	if err := state.SaveState(server.URL(), destPath, savedState); err != nil {
+	if err := state.SaveState(context.Background(), server.URL(), destPath, savedState); err != nil {
 		t.Fatalf("Failed to save state: %v", err)
 	}
 

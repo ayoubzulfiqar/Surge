@@ -115,7 +115,7 @@ func GetLogsDir() string {
 func EnsureDirs() error {
 	dirs := []string{GetSurgeDir(), GetStateDir(), GetRuntimeDir(), GetLogsDir()}
 	for _, dir := range dirs {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			return err
 		}
 	}

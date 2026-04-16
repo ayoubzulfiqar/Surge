@@ -134,7 +134,7 @@ func startLifecycleEventWorker(ctx context.Context, service core.DownloadService
 	if err != nil {
 		return nil, err
 	}
-	go mgr.StartEventWorker(managerStream)
+	go mgr.StartEventWorker(ctx, managerStream)
 	return managerCleanup, nil
 }
 
@@ -266,7 +266,7 @@ func recordPreflightDownloadError(url, outPath string, err error) {
 		Filename: filename,
 		Status:   "error",
 	}
-	if addErr := state.AddToMasterList(entry); addErr != nil {
+	if addErr := state.AddToMasterList(context.Background(), entry); addErr != nil {
 		utils.Debug("Failed to persist preflight download error for %s: %v", url, addErr)
 	}
 	if GlobalService != nil {

@@ -58,7 +58,7 @@ func TestLifecycleManager_Enqueue_PrecreatesWorkingFileBeforeDispatch(t *testing
 	expectedID := "enqueue-id"
 
 	mgr := newLifecycleManagerForTest()
-	mgr.addFunc = func(url, path, filename string, _ []string, _ map[string]string, explicit bool, totalSize int64, supportsRange bool) (string, error) {
+	mgr.addFunc = func(ctx context.Context, url, path, filename string, _ []string, _ map[string]string, explicit bool, totalSize int64, supportsRange bool) (string, error) {
 		if url != server.URL {
 			t.Fatalf("url = %q, want %q", url, server.URL)
 		}
@@ -116,7 +116,7 @@ func TestLifecycleManager_EnqueueWithID_PrecreatesWorkingFileBeforeDispatch(t *t
 	expectedID := "request-id"
 
 	mgr := newLifecycleManagerForTest()
-	mgr.addWithIDFunc = func(url, path, filename string, _ []string, _ map[string]string, requestID string, totalSize int64, supportsRange bool) (string, error) {
+	mgr.addWithIDFunc = func(ctx context.Context, url, path, filename string, _ []string, _ map[string]string, requestID string, totalSize int64, supportsRange bool) (string, error) {
 		if url != server.URL {
 			t.Fatalf("url = %q, want %q", url, server.URL)
 		}
@@ -174,7 +174,7 @@ func TestLifecycleManager_Enqueue_RemovesWorkingFileOnDispatchError(t *testing.T
 	expectedErr := errors.New("dispatch failed")
 
 	mgr := newLifecycleManagerForTest()
-	mgr.addFunc = func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+	mgr.addFunc = func(_ context.Context, _ string, _ string, _ string, _ []string, _ map[string]string, _ bool, _ int64, _ bool) (string, error) {
 		return "", expectedErr
 	}
 
@@ -223,7 +223,7 @@ func TestLifecycleManager_Enqueue_RetriesWhenWorkingFileReservationCollides(t *t
 
 	mgr := newLifecycleManagerForTest()
 	var dispatchedFilename string
-	mgr.addFunc = func(url, path, filename string, _ []string, _ map[string]string, explicit bool, totalSize int64, supportsRange bool) (string, error) {
+	mgr.addFunc = func(ctx context.Context, url, path, filename string, _ []string, _ map[string]string, explicit bool, totalSize int64, supportsRange bool) (string, error) {
 		dispatchedFilename = filename
 		if path != tempDir {
 			t.Fatalf("path = %q, want %q", path, tempDir)
@@ -296,7 +296,7 @@ func TestLifecycleManager_EnqueueWithID_RetriesWhenWorkingFileReservationCollide
 
 	mgr := newLifecycleManagerForTest()
 	var dispatchedFilename string
-	mgr.addWithIDFunc = func(url, path, filename string, _ []string, _ map[string]string, gotRequestID string, totalSize int64, supportsRange bool) (string, error) {
+	mgr.addWithIDFunc = func(ctx context.Context, url, path, filename string, _ []string, _ map[string]string, gotRequestID string, totalSize int64, supportsRange bool) (string, error) {
 		dispatchedFilename = filename
 		if path != tempDir {
 			t.Fatalf("path = %q, want %q", path, tempDir)
@@ -348,7 +348,7 @@ func TestLifecycleManager_EnqueueWithID_RemovesWorkingFileOnDispatchError(t *tes
 	expectedErr := errors.New("dispatch failed")
 
 	mgr := newLifecycleManagerForTest()
-	mgr.addWithIDFunc = func(string, string, string, []string, map[string]string, string, int64, bool) (string, error) {
+	mgr.addWithIDFunc = func(context.Context, string, string, string, []string, map[string]string, string, int64, bool) (string, error) {
 		return "", expectedErr
 	}
 
@@ -389,7 +389,7 @@ func TestLifecycleManager_Enqueue_FailsAfterReservationAttemptLimit(t *testing.T
 	}
 
 	mgr := newLifecycleManagerForTest()
-	mgr.addFunc = func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+	mgr.addFunc = func(_ context.Context, _ string, _ string, _ string, _ []string, _ map[string]string, _ bool, _ int64, _ bool) (string, error) {
 		t.Fatal("dispatch should not run when reservation never succeeds")
 		return "", nil
 	}
@@ -475,7 +475,7 @@ func TestLifecycleManager_Enqueue_ContextCancellationDuringProbe(t *testing.T) {
 	defer server.Close()
 
 	mgr := newLifecycleManagerForTest()
-	mgr.addFunc = func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+	mgr.addFunc = func(_ context.Context, _ string, _ string, _ string, _ []string, _ map[string]string, _ bool, _ int64, _ bool) (string, error) {
 		t.Fatal("dispatch should not run when probe fails")
 		return "", nil
 	}
@@ -517,7 +517,7 @@ func TestLifecycleManager_EnqueueWithID_FailsAfterReservationAttemptLimit(t *tes
 	}
 
 	mgr := newLifecycleManagerForTest()
-	mgr.addWithIDFunc = func(string, string, string, []string, map[string]string, string, int64, bool) (string, error) {
+	mgr.addWithIDFunc = func(context.Context, string, string, string, []string, map[string]string, string, int64, bool) (string, error) {
 		t.Fatal("dispatch should not run when reservation never succeeds")
 		return "", nil
 	}
@@ -576,7 +576,7 @@ func TestLifecycleManager_Enqueue_ContextCancellationBeforeReservation(t *testin
 	defer server.Close()
 
 	mgr := newLifecycleManagerForTest()
-	mgr.addFunc = func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+	mgr.addFunc = func(_ context.Context, _ string, _ string, _ string, _ []string, _ map[string]string, _ bool, _ int64, _ bool) (string, error) {
 		t.Fatal("dispatch should not run when context is canceled before reservation")
 		return "", nil
 	}
@@ -625,7 +625,7 @@ func TestLifecycleManager_Resume_HotPath(t *testing.T) {
 		},
 	})
 
-	if err := mgr.Resume("hot-id"); err != nil {
+	if err := mgr.Resume(context.Background(), "hot-id"); err != nil {
 		t.Fatalf("Resume failed: %v", err)
 	}
 	if !extractCalled {
@@ -679,7 +679,7 @@ func TestLifecycleManager_Resume_ColdPath(t *testing.T) {
 		},
 	})
 
-	if err := mgr.Resume("cold-id"); err != nil {
+	if err := mgr.Resume(context.Background(), "cold-id"); err != nil {
 		t.Fatalf("Resume failed: %v", err)
 	}
 	if !addCalled {
@@ -695,7 +695,7 @@ func TestLifecycleManager_Resume_NotFound(t *testing.T) {
 		ExtractPausedConfig: func(id string) *types.DownloadConfig { return nil },
 	})
 
-	err := mgr.Resume("missing-id")
+	err := mgr.Resume(context.Background(), "missing-id")
 	if err == nil {
 		t.Fatal("expected error for unknown download")
 	}
@@ -718,7 +718,7 @@ func TestLifecycleManager_Resume_Completed(t *testing.T) {
 		ExtractPausedConfig: func(id string) *types.DownloadConfig { return nil },
 	})
 
-	err := mgr.Resume("done-id")
+	err := mgr.Resume(context.Background(), "done-id")
 	if err == nil {
 		t.Fatal("expected error for completed download")
 	}
@@ -737,7 +737,7 @@ func TestLifecycleManager_Resume_StillPausing(t *testing.T) {
 		},
 	})
 
-	err := mgr.Resume("pausing-id")
+	err := mgr.Resume(context.Background(), "pausing-id")
 	if err == nil {
 		t.Fatal("expected error when download is still pausing")
 	}
@@ -759,7 +759,7 @@ func TestLifecycleManager_Resume_HydratesFromDisk(t *testing.T) {
 		Status:   "paused",
 	})
 
-	if err := state.SaveStateWithOptions("http://example.com/hydrated.zip", destPath, &types.DownloadState{
+	if err := state.SaveStateWithOptions(context.Background(), "http://example.com/hydrated.zip", destPath, &types.DownloadState{
 		ID: "hydrate-id", URL: "http://example.com/hydrated.zip", Filename: "hydrated.zip",
 		DestPath: destPath, TotalSize: 5000,
 		Tasks: []types.Task{{Offset: 0, Length: 2500}, {Offset: 2500, Length: 2500}},
@@ -777,7 +777,7 @@ func TestLifecycleManager_Resume_HydratesFromDisk(t *testing.T) {
 		AddConfig: func(cfg types.DownloadConfig) { addedCfg = &cfg },
 	})
 
-	if err := mgr.Resume("hydrate-id"); err != nil {
+	if err := mgr.Resume(context.Background(), "hydrate-id"); err != nil {
 		t.Fatalf("Resume failed: %v", err)
 	}
 	if addedCfg == nil {
@@ -808,11 +808,11 @@ func TestLifecycleManager_Cancel_FromPool(t *testing.T) {
 
 	mgr := newLifecycleManagerForTest()
 	mgr.SetEngineHooks(EngineHooks{
-		Cancel:       func(id string) types.CancelResult { return cancelResult },
+		Cancel:       func(ctx context.Context, id string) types.CancelResult { return cancelResult },
 		PublishEvent: func(msg interface{}) error { publishedMsg = msg; return nil },
 	})
 
-	if err := mgr.Cancel("active-cancel"); err != nil {
+	if err := mgr.Cancel(context.Background(), "active-cancel"); err != nil {
 		t.Fatalf("Cancel failed: %v", err)
 	}
 	if publishedMsg == nil {
@@ -847,11 +847,11 @@ func TestLifecycleManager_Cancel_DBOnly(t *testing.T) {
 
 	mgr := newLifecycleManagerForTest()
 	mgr.SetEngineHooks(EngineHooks{
-		Cancel:       func(id string) types.CancelResult { return types.CancelResult{Found: false} },
+		Cancel:       func(ctx context.Context, id string) types.CancelResult { return types.CancelResult{Found: false} },
 		PublishEvent: func(msg interface{}) error { publishedMsg = msg; return nil },
 	})
 
-	if err := mgr.Cancel("db-only"); err != nil {
+	if err := mgr.Cancel(context.Background(), "db-only"); err != nil {
 		t.Fatalf("Cancel failed: %v", err)
 	}
 
@@ -884,11 +884,11 @@ func TestLifecycleManager_Cancel_Completed(t *testing.T) {
 
 	mgr := newLifecycleManagerForTest()
 	mgr.SetEngineHooks(EngineHooks{
-		Cancel:       func(id string) types.CancelResult { return types.CancelResult{} },
+		Cancel:       func(ctx context.Context, id string) types.CancelResult { return types.CancelResult{} },
 		PublishEvent: func(msg interface{}) error { publishedMsg = msg; return nil },
 	})
 
-	if err := mgr.Cancel("completed-cancel"); err != nil {
+	if err := mgr.Cancel(context.Background(), "completed-cancel"); err != nil {
 		t.Fatalf("Cancel failed: %v", err)
 	}
 
@@ -909,10 +909,10 @@ func TestLifecycleManager_Cancel_NotFound(t *testing.T) {
 
 	mgr := newLifecycleManagerForTest()
 	mgr.SetEngineHooks(EngineHooks{
-		Cancel: func(id string) types.CancelResult { return types.CancelResult{Found: false} },
+		Cancel: func(ctx context.Context, id string) types.CancelResult { return types.CancelResult{Found: false} },
 	})
 
-	err := mgr.Cancel("ghost-id")
+	err := mgr.Cancel(context.Background(), "ghost-id")
 	if err == nil {
 		t.Fatal("expected error for non-existent download")
 	}
@@ -933,7 +933,7 @@ func TestLifecycleManager_UpdateURL_Success(t *testing.T) {
 	var hookCalled bool
 	mgr := newLifecycleManagerForTest()
 	mgr.SetEngineHooks(EngineHooks{
-		UpdateURL: func(id, newURL string) error {
+		UpdateURL: func(ctx context.Context, id, newURL string) error {
 			hookCalled = true
 			if newURL != "http://example.com/new.zip" {
 				t.Errorf("UpdateURL newURL = %q", newURL)
@@ -942,14 +942,14 @@ func TestLifecycleManager_UpdateURL_Success(t *testing.T) {
 		},
 	})
 
-	if err := mgr.UpdateURL("update-id", "http://example.com/new.zip"); err != nil {
+	if err := mgr.UpdateURL(context.Background(), "update-id", "http://example.com/new.zip"); err != nil {
 		t.Fatalf("UpdateURL failed: %v", err)
 	}
 	if !hookCalled {
 		t.Error("Expected UpdateURL hook to be called")
 	}
 
-	entry, err := state.GetDownload("update-id")
+	entry, err := state.GetDownload(context.Background(), "update-id")
 	if err != nil {
 		t.Fatalf("GetDownload failed: %v", err)
 	}
@@ -964,10 +964,10 @@ func TestLifecycleManager_UpdateURL_HookError(t *testing.T) {
 	expectedErr := errors.New("not in pausable state")
 	mgr := newLifecycleManagerForTest()
 	mgr.SetEngineHooks(EngineHooks{
-		UpdateURL: func(id, newURL string) error { return expectedErr },
+		UpdateURL: func(ctx context.Context, id, newURL string) error { return expectedErr },
 	})
 
-	err := mgr.UpdateURL("bad-id", "http://example.com/new.zip")
+	err := mgr.UpdateURL(context.Background(), "bad-id", "http://example.com/new.zip")
 	if err == nil {
 		t.Fatal("expected error from pool hook, got nil")
 	}
@@ -1024,7 +1024,7 @@ func TestLifecycleManager_ProbeSemaphore_LimitsInflight(t *testing.T) {
 	}()
 
 	mgr := newLifecycleManagerForTest()
-	mgr.addFunc = func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+	mgr.addFunc = func(_ context.Context, _ string, _ string, _ string, _ []string, _ map[string]string, _ bool, _ int64, _ bool) (string, error) {
 		return "", errors.New("dispatch intentionally rejected for test")
 	}
 	settings := config.DefaultSettings()
@@ -1069,7 +1069,7 @@ func TestLifecycleManager_ProbeSemaphore_LimitsInflight(t *testing.T) {
 func TestLifecycleManager_ProbeSemaphore_CancelledContextAbortsWait(t *testing.T) {
 	// Build a manager and fill its semaphore completely so the next Enqueue blocks.
 	mgr := newLifecycleManagerForTest()
-	mgr.addFunc = func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+	mgr.addFunc = func(_ context.Context, _ string, _ string, _ string, _ []string, _ map[string]string, _ bool, _ int64, _ bool) (string, error) {
 		t.Fatal("dispatch should not run when context is cancelled")
 		return "", nil
 	}

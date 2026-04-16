@@ -43,7 +43,7 @@ func TestFindAvailablePort_Success(t *testing.T) {
 	}
 
 	// Verify we can't bind to the same port
-	_, err := net.Listen("tcp", ln.Addr().String())
+	_, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", ln.Addr().String())
 	if err == nil {
 		t.Error("Should not be able to bind to same port")
 	}
@@ -67,7 +67,7 @@ func TestFindAvailablePort_ReturnsListener(t *testing.T) {
 func TestFindAvailablePort_SkipsOccupiedPorts(t *testing.T) {
 	requireTCPListener(t)
 	// Occupy any port
-	ln1, err := net.Listen("tcp", serverBindHost+":0")
+	ln1, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", serverBindHost+":0")
 	if err != nil {
 		t.Fatalf("Failed to occupy any port: %v", err)
 	}
@@ -718,7 +718,7 @@ func TestAddCmd_HasGetAlias(t *testing.T) {
 func TestStartHTTPServer_HealthEndpoint(t *testing.T) {
 	requireTCPListener(t)
 	// Create listener
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
@@ -761,7 +761,7 @@ func TestStartHTTPServer_HealthEndpoint(t *testing.T) {
 
 func TestStartHTTPServer_HasCORSHeaders(t *testing.T) {
 	requireTCPListener(t)
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
@@ -788,7 +788,7 @@ func TestStartHTTPServer_HasCORSHeaders(t *testing.T) {
 
 func TestStartHTTPServer_OptionsRequest(t *testing.T) {
 	requireTCPListener(t)
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
@@ -813,7 +813,7 @@ func TestStartHTTPServer_OptionsRequest(t *testing.T) {
 
 func TestStartHTTPServer_DownloadEndpoint_MethodNotAllowed(t *testing.T) {
 	requireTCPListener(t)
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
@@ -842,7 +842,7 @@ func TestStartHTTPServer_DownloadEndpoint_MethodNotAllowed(t *testing.T) {
 func setupTestServer(t *testing.T) (port int, svc *core.LocalDownloadService) {
 	t.Helper()
 	requireTCPListener(t)
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
@@ -882,7 +882,7 @@ func TestStartHTTPServer_DownloadEndpoint_MissingURL(t *testing.T) {
 
 func TestStartHTTPServer_NotFoundEndpoint(t *testing.T) {
 	requireTCPListener(t)
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatalf("Failed to create listener: %v", err)
 	}
@@ -892,7 +892,7 @@ func TestStartHTTPServer_NotFoundEndpoint(t *testing.T) {
 	go startHTTPServer(ln, port, "", svc, "")
 	time.Sleep(50 * time.Millisecond)
 
-	req, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/nonexistent", port), nil)
+	req, _ := http.NewRequestWithContext(context.Background(), http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/nonexistent", port), nil)
 	req.Header.Set("Authorization", "Bearer "+ensureAuthToken())
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

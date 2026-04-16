@@ -30,11 +30,11 @@ func openWithSystem(path string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
-		cmd = exec.Command("open", path)
+		cmd = exec.Command("open", path) //nolint:gosec // Opening user-selected path or URL
 	case "windows":
-		cmd = exec.Command("cmd", "/c", "start", "", path)
+		cmd = exec.Command("cmd", "/c", "start", "", path) //nolint:gosec // Opening user-selected path or URL
 	default: // linux and others
-		cmd = exec.Command("xdg-open", path)
+		cmd = exec.Command("xdg-open", path) //nolint:gosec // Opening user-selected path or URL
 	}
 	err := cmd.Start()
 	if err == nil {

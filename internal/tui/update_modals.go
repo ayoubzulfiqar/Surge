@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -126,7 +127,7 @@ func (m RootModel) updateURLUpdate(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 		newURL := strings.TrimSpace(m.urlUpdateInput.Value())
 		if newURL != "" {
 			if d := m.GetSelectedDownload(); d != nil {
-				if err := m.Service.UpdateURL(d.ID, newURL); err != nil {
+				if err := m.Service.UpdateURL(context.Background(), d.ID, newURL); err != nil {
 					m.addLogEntry(LogStyleError.Render("✖ Failed to update URL: " + err.Error()))
 				} else {
 					m.addLogEntry(LogStyleComplete.Render("✔ URL Updated: " + d.Filename))

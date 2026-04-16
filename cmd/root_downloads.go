@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -99,7 +100,7 @@ func handleDownloadStatusRequest(w http.ResponseWriter, r *http.Request, service
 		return true
 	}
 
-	status, err := service.GetStatus(id)
+	status, err := service.GetStatus(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return true
@@ -152,7 +153,7 @@ func resolveDownloadRequest(r *http.Request, defaultOutputDir string) (*resolved
 
 	outPath := utils.EnsureAbsPath(resolveOutputDir(req.Path, req.RelativeToDefaultDir, defaultOutputDir, settings))
 	urlForAdd, mirrorsForAdd := normalizeDownloadTargets(req.URL, req.Mirrors)
-	isDuplicate, isActive := resolveDuplicateState(urlForAdd, settings)
+	isDuplicate, isActive := resolveDuplicateState(r.Context(), urlForAdd, settings)
 
 	utils.Debug("Download request: URL=%s, Filename=%s, SkipApproval=%v, isDuplicate=%v, isActive=%v", urlForAdd, req.Filename, req.SkipApproval, isDuplicate, isActive)
 
@@ -174,7 +175,7 @@ func normalizeDownloadTargets(url string, mirrors []string) (string, []string) {
 	return url, mirrors
 }
 
-func resolveDuplicateState(urlForAdd string, settings *config.Settings) (bool, bool) {
+func resolveDuplicateState(ctx context.Context, urlForAdd string, settings *config.Settings) (bool, bool) {
 	activeDownloadsFunc := func() map[string]*types.DownloadConfig {
 		active := make(map[string]*types.DownloadConfig)
 		for _, cfg := range GlobalPool.GetAll() {
@@ -184,7 +185,7 @@ func resolveDuplicateState(urlForAdd string, settings *config.Settings) (bool, b
 		return active
 	}
 
-	dupResult := processing.CheckForDuplicate(urlForAdd, settings, activeDownloadsFunc)
+	dupResult := processing.CheckForDuplicate(ctx, urlForAdd, settings, activeDownloadsFunc)
 	if dupResult == nil {
 		return false, false
 	}
@@ -259,7 +260,7 @@ func enqueueDownloadRequest(r *http.Request, service core.DownloadService, resol
 		})
 	}
 
-	id, err := service.Add(resolved.urlForAdd, resolved.outPath, req.Filename, resolved.mirrorsForAdd, req.Headers, req.IsExplicitCategory, 0, false)
+	id, err := service.Add(r.Context(), resolved.urlForAdd, resolved.outPath, req.Filename, resolved.mirrorsForAdd, req.Headers, req.IsExplicitCategory, 0, false)
 	return id, req.Filename, err
 }
 

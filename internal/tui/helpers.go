@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -127,7 +128,7 @@ func (m RootModel) checkForDuplicate(url string) *processing.DuplicateResult {
 		}
 		return active
 	}
-	return processing.CheckForDuplicate(url, m.Settings, activeDownloads)
+	return processing.CheckForDuplicate(context.Background(), url, m.Settings, activeDownloads)
 }
 
 // renderEmptyMessage provides a consistent visual for "no data" states in dashboard panes.

@@ -168,7 +168,7 @@ func (p *WorkerPool) GetAll() []types.DownloadConfig {
 
 // Pause pauses a specific download by ID. Returns true if found and pause initiated
 // (or already paused), false otherwise. Pure mechanical operation — no events emitted.
-func (p *WorkerPool) Pause(downloadID string) bool {
+func (p *WorkerPool) Pause(ctx context.Context, downloadID string) bool {
 	p.mu.RLock()
 	ad, exists := p.downloads[downloadID]
 	p.mu.RUnlock()
@@ -216,14 +216,14 @@ func (p *WorkerPool) PauseAll() {
 	p.mu.RUnlock()
 
 	for _, id := range ids {
-		p.Pause(id)
+		p.Pause(context.Background(), id)
 	}
 }
 
 // Cancel cancels and removes a download by ID. Returns metadata about what was
 // removed so the caller (LifecycleManager) can emit events and handle cleanup.
 // No events are emitted by the pool itself.
-func (p *WorkerPool) Cancel(downloadID string) types.CancelResult {
+func (p *WorkerPool) Cancel(ctx context.Context, downloadID string) types.CancelResult {
 	p.mu.Lock()
 	ad, activeExists := p.downloads[downloadID]
 	qCfg, queuedExists := p.queued[downloadID]
@@ -301,7 +301,7 @@ func (p *WorkerPool) ExtractPausedConfig(downloadID string) *types.DownloadConfi
 // UpdateURL updates the in-memory URL of a download by ID.
 // The caller (LifecycleManager) is responsible for persisting the change to the DB.
 // It fails if the download is actively downloading (not paused or errored).
-func (p *WorkerPool) UpdateURL(downloadID string, newURL string) error {
+func (p *WorkerPool) UpdateURL(ctx context.Context, downloadID string, newURL string) error {
 	p.mu.Lock()
 	ad, exists := p.downloads[downloadID]
 	_, qExists := p.queued[downloadID]

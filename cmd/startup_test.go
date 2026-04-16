@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -99,7 +100,7 @@ func TestStartupIntegrityCheck_RemovesMissingPausedEntry(t *testing.T) {
 	msg := runStartupIntegrityCheck()
 	utils.Debug("%s", msg)
 
-	entry, err := state.GetDownload(testID)
+	entry, err := state.GetDownload(context.Background(), testID)
 	if err != nil {
 		t.Fatalf("GetDownload failed: %v", err)
 	}
@@ -150,10 +151,10 @@ func seedDownload(t *testing.T, id, url, dest, status string) {
 		PausedAt:   0,
 		CreatedAt:  time.Now().Unix(),
 	}
-	if err := state.SaveState(url, dest, manualState); err != nil {
+	if err := state.SaveState(context.Background(), url, dest, manualState); err != nil {
 		t.Fatal(err)
 	}
-	if err := state.UpdateStatus(id, status); err != nil {
+	if err := state.UpdateStatus(context.Background(), id, status); err != nil {
 		t.Fatal(err)
 	}
 }

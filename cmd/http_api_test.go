@@ -24,42 +24,42 @@ type httpAPITestService struct {
 	streamMsgs   []interface{}
 }
 
-func (s *httpAPITestService) List() ([]types.DownloadStatus, error) {
+func (s *httpAPITestService) List(ctx context.Context) ([]types.DownloadStatus, error) {
 	return nil, nil
 }
 
-func (s *httpAPITestService) History() ([]types.DownloadEntry, error) {
+func (s *httpAPITestService) History(ctx context.Context) ([]types.DownloadEntry, error) {
 	if s.historyErr != nil {
 		return nil, s.historyErr
 	}
 	return s.history, nil
 }
 
-func (s *httpAPITestService) Add(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+func (s *httpAPITestService) Add(context.Context, string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
 	return "", errors.New("not implemented")
 }
 
-func (s *httpAPITestService) AddWithID(string, string, string, []string, map[string]string, string, int64, bool) (string, error) {
+func (s *httpAPITestService) AddWithID(context.Context, string, string, string, []string, map[string]string, string, int64, bool) (string, error) {
 	return "", errors.New("not implemented")
 }
 
-func (s *httpAPITestService) Pause(string) error {
+func (s *httpAPITestService) Pause(context.Context, string) error {
 	return nil
 }
 
-func (s *httpAPITestService) Resume(string) error {
+func (s *httpAPITestService) Resume(context.Context, string) error {
 	return nil
 }
 
-func (s *httpAPITestService) ResumeBatch([]string) []error {
+func (s *httpAPITestService) ResumeBatch(context.Context, []string) []error {
 	return nil
 }
 
-func (s *httpAPITestService) UpdateURL(string, string) error {
+func (s *httpAPITestService) UpdateURL(context.Context, string, string) error {
 	return nil
 }
 
-func (s *httpAPITestService) Delete(string) error {
+func (s *httpAPITestService) Delete(context.Context, string) error {
 	return nil
 }
 
@@ -77,7 +77,7 @@ func (s *httpAPITestService) Publish(interface{}) error {
 	return nil
 }
 
-func (s *httpAPITestService) GetStatus(id string) (*types.DownloadStatus, error) {
+func (s *httpAPITestService) GetStatus(ctx context.Context, id string) (*types.DownloadStatus, error) {
 	if s.getStatusErr != nil {
 		return nil, s.getStatusErr
 	}
@@ -181,7 +181,7 @@ func TestEventsEndpoint_RequiresAuthAndStreamsSSE(t *testing.T) {
 		t.Fatalf("expected 401 without auth, got %d", noAuthResp.StatusCode)
 	}
 
-	req, err := http.NewRequest(http.MethodGet, server.URL+"/events", nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, server.URL+"/events", nil)
 	if err != nil {
 		t.Fatalf("failed to create authed request: %v", err)
 	}

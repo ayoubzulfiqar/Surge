@@ -26,7 +26,7 @@ func TestIntegration_MirrorResume(t *testing.T) {
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Set XDG_CONFIG_HOME to tmpDir so state.GetDB() creates DB there
+	// Set XDG_CONFIG_HOME to tmpDir so state.GetDB(context.Background()) creates DB there
 	// The config package uses "surge" subdirectory
 	configDir := tmpDir // XDG_CONFIG_HOME usually contains the app dir
 	t.Setenv("XDG_CONFIG_HOME", configDir)
@@ -38,7 +38,7 @@ func TestIntegration_MirrorResume(t *testing.T) {
 	state.CloseDB()
 	dbPath := filepath.Join(tmpDir, "surge.db")
 	state.Configure(dbPath)
-	if _, err := state.GetDB(); err != nil {
+	if _, err := state.GetDB(context.Background()); err != nil {
 		t.Fatalf("Failed to init DB: %v", err)
 	}
 	defer state.CloseDB()
@@ -71,7 +71,7 @@ func TestIntegration_MirrorResume(t *testing.T) {
 	eventWG.Add(1)
 	go func() {
 		defer eventWG.Done()
-		mgr.StartEventWorker(progressCh)
+		mgr.StartEventWorker(context.Background(), progressCh)
 	}()
 	defer func() {
 		close(progressCh)
@@ -141,7 +141,7 @@ func TestIntegration_MirrorResume(t *testing.T) {
 	var savedState *types.DownloadState
 	deadline = time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		savedState, err = state.LoadState(primary.URL(), destPath)
+		savedState, err = state.LoadState(context.Background(), primary.URL(), destPath)
 		if err == nil && savedState != nil && len(savedState.Mirrors) > 0 {
 			break
 		}

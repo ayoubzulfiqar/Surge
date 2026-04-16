@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/SurgeDM/Surge/internal/config"
 	"github.com/SurgeDM/Surge/internal/core"
@@ -85,7 +86,10 @@ func startHTTPServer(ln net.Listener, port int, defaultOutputDir string, service
 	// Wrap mux with Auth and CORS (CORS outermost to ensure 401/403 include headers)
 	handler := corsMiddleware(authMiddleware(authToken, mux))
 
-	server := &http.Server{Handler: handler}
+	server := &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 	if err := server.Serve(ln); err != nil && err != http.ErrServerClosed {
 		utils.Debug("HTTP server error: %v", err)
 	}

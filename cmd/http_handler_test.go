@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -286,7 +287,7 @@ func TestHandleDownload_SkipApprovalUsesLifecycleEnqueue(t *testing.T) {
 	expectedFile := "from-extension.bin"
 
 	var addCalls int
-	GlobalLifecycle = processing.NewLifecycleManager(func(url, path, filename string, _ []string, headers map[string]string, explicit bool, totalSize int64, supportsRange bool) (string, error) {
+	GlobalLifecycle = processing.NewLifecycleManager(func(ctx context.Context, url, path, filename string, _ []string, headers map[string]string, explicit bool, totalSize int64, supportsRange bool) (string, error) {
 		addCalls++
 		if url != probeServer.URL {
 			t.Fatalf("url = %q, want %q", url, probeServer.URL)
@@ -372,7 +373,7 @@ func TestHandleDownload_EnqueueError_RecordsPreflightError(t *testing.T) {
 
 	// Create a lifecycle manager whose addFunc should never be reached
 	// because the probe will fail first (invalid URL scheme).
-	GlobalLifecycle = processing.NewLifecycleManager(func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
+	GlobalLifecycle = processing.NewLifecycleManager(func(context.Context, string, string, string, []string, map[string]string, bool, int64, bool) (string, error) {
 		t.Fatal("addFunc should not be called when probe fails")
 		return "", nil
 	}, nil)
@@ -395,7 +396,7 @@ func TestHandleDownload_EnqueueError_RecordsPreflightError(t *testing.T) {
 	}
 
 	// Verify that the error was persisted in the master list.
-	list, err := state.LoadMasterList()
+	list, err := state.LoadMasterList(context.Background())
 	if err != nil {
 		t.Fatalf("LoadMasterList failed: %v", err)
 	}
@@ -458,7 +459,7 @@ func TestHandleDownload_PublishError_RecordsPreflightError(t *testing.T) {
 		t.Fatalf("expected 500, got %d: %s", rec.Code, rec.Body.String())
 	}
 
-	list, err := state.LoadMasterList()
+	list, err := state.LoadMasterList(context.Background())
 	if err != nil {
 		t.Fatalf("LoadMasterList failed: %v", err)
 	}

@@ -657,7 +657,7 @@ func (m *RootModel) setSettingValue(category, key, value string) error {
 					// Handle KB/MB scaling gracefully if specified
 					if key == "min_chunk_size" {
 						if v, err := strconv.ParseFloat(value, 64); err == nil {
-							targetField.SetInt(int64(v * float64(config.MB)))
+							targetField.SetInt(int64(v * float64(config.MB))) //nolint:gosec // Controlled setting conversion
 						} else {
 							return fmt.Errorf("invalid number: %q", value)
 						}

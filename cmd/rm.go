@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -28,7 +29,7 @@ var rmCmd = &cobra.Command{
 
 		if clean {
 			// Remove completed downloads from DB
-			count, err := state.RemoveCompletedDownloads()
+			count, err := state.RemoveCompletedDownloads(context.Background())
 			if err != nil {
 				return fmt.Errorf("error cleaning downloads: %w", err)
 			}

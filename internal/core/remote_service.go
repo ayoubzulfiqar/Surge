@@ -41,7 +41,7 @@ func NewRemoteDownloadService(baseURL string, token string) *RemoteDownloadServi
 	}
 }
 
-func (s *RemoteDownloadService) doRequest(method, path string, body interface{}) (*http.Response, error) {
+func (s *RemoteDownloadService) doRequest(ctx context.Context, method, path string, body interface{}) (*http.Response, error) {
 	var bodyReader io.Reader
 	if body != nil {
 		jsonBody, err := json.Marshal(body)
@@ -51,7 +51,7 @@ func (s *RemoteDownloadService) doRequest(method, path string, body interface{})
 		bodyReader = bytes.NewBuffer(jsonBody)
 	}
 
-	req, err := http.NewRequestWithContext(s.ctx, method, s.BaseURL+path, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, s.BaseURL+path, bodyReader)
 	if err != nil {
 		return nil, err
 	}
@@ -77,8 +77,8 @@ func (s *RemoteDownloadService) doRequest(method, path string, body interface{})
 }
 
 // List returns the status of all active and completed downloads.
-func (s *RemoteDownloadService) List() ([]types.DownloadStatus, error) {
-	resp, err := s.doRequest("GET", "/list", nil)
+func (s *RemoteDownloadService) List(ctx context.Context) ([]types.DownloadStatus, error) {
+	resp, err := s.doRequest(ctx, "GET", "/list", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -92,8 +92,8 @@ func (s *RemoteDownloadService) List() ([]types.DownloadStatus, error) {
 }
 
 // History returns completed downloads
-func (s *RemoteDownloadService) History() ([]types.DownloadEntry, error) {
-	resp, err := s.doRequest("GET", "/history", nil)
+func (s *RemoteDownloadService) History(ctx context.Context) ([]types.DownloadEntry, error) {
+	resp, err := s.doRequest(ctx, "GET", "/history", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +107,8 @@ func (s *RemoteDownloadService) History() ([]types.DownloadEntry, error) {
 }
 
 // GetStatus returns a status for a single download by id.
-func (s *RemoteDownloadService) GetStatus(id string) (*types.DownloadStatus, error) {
-	resp, err := s.doRequest("GET", "/download?id="+url.QueryEscape(id), nil)
+func (s *RemoteDownloadService) GetStatus(ctx context.Context, id string) (*types.DownloadStatus, error) {
+	resp, err := s.doRequest(ctx, "GET", "/download?id="+url.QueryEscape(id), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +122,7 @@ func (s *RemoteDownloadService) GetStatus(id string) (*types.DownloadStatus, err
 }
 
 // Add queues a new download.
-func (s *RemoteDownloadService) Add(url string, path string, filename string, mirrors []string, headers map[string]string, isExplicitCategory bool, totalSize int64, supportsRange bool) (string, error) {
+func (s *RemoteDownloadService) Add(ctx context.Context, url string, path string, filename string, mirrors []string, headers map[string]string, isExplicitCategory bool, totalSize int64, supportsRange bool) (string, error) {
 	req := map[string]interface{}{
 		"url":                  url,
 		"path":                 path,
@@ -135,7 +135,7 @@ func (s *RemoteDownloadService) Add(url string, path string, filename string, mi
 		"supports_range":       supportsRange,
 	}
 
-	resp, err := s.doRequest("POST", "/download", req)
+	resp, err := s.doRequest(ctx, "POST", "/download", req)
 	if err != nil {
 		return "", err
 	}
@@ -149,7 +149,7 @@ func (s *RemoteDownloadService) Add(url string, path string, filename string, mi
 }
 
 // AddWithID queues a new download with a caller-provided id.
-func (s *RemoteDownloadService) AddWithID(url string, path string, filename string, mirrors []string, headers map[string]string, id string, totalSize int64, supportsRange bool) (string, error) {
+func (s *RemoteDownloadService) AddWithID(ctx context.Context, url string, path string, filename string, mirrors []string, headers map[string]string, id string, totalSize int64, supportsRange bool) (string, error) {
 	req := map[string]interface{}{
 		"url":            url,
 		"path":           path,
@@ -162,7 +162,7 @@ func (s *RemoteDownloadService) AddWithID(url string, path string, filename stri
 		"supports_range": supportsRange,
 	}
 
-	resp, err := s.doRequest("POST", "/download", req)
+	resp, err := s.doRequest(ctx, "POST", "/download", req)
 	if err != nil {
 		return "", err
 	}
@@ -176,8 +176,8 @@ func (s *RemoteDownloadService) AddWithID(url string, path string, filename stri
 }
 
 // Pause pauses an active download.
-func (s *RemoteDownloadService) Pause(id string) error {
-	resp, err := s.doRequest("POST", "/pause?id="+url.QueryEscape(id), nil)
+func (s *RemoteDownloadService) Pause(ctx context.Context, id string) error {
+	resp, err := s.doRequest(ctx, "POST", "/pause?id="+url.QueryEscape(id), nil)
 	if err != nil {
 		return err
 	}
@@ -186,8 +186,8 @@ func (s *RemoteDownloadService) Pause(id string) error {
 }
 
 // Resume resumes a paused download.
-func (s *RemoteDownloadService) Resume(id string) error {
-	resp, err := s.doRequest("POST", "/resume?id="+url.QueryEscape(id), nil)
+func (s *RemoteDownloadService) Resume(ctx context.Context, id string) error {
+	resp, err := s.doRequest(ctx, "POST", "/resume?id="+url.QueryEscape(id), nil)
 	if err != nil {
 		return err
 	}
@@ -196,20 +196,20 @@ func (s *RemoteDownloadService) Resume(id string) error {
 }
 
 // ResumeBatch resumes multiple paused downloads efficiently.
-func (s *RemoteDownloadService) ResumeBatch(ids []string) []error {
+func (s *RemoteDownloadService) ResumeBatch(ctx context.Context, ids []string) []error {
 	errs := make([]error, len(ids))
 	for i, id := range ids {
-		errs[i] = s.Resume(id)
+		errs[i] = s.Resume(ctx, id)
 	}
 	return errs
 }
 
 // UpdateURL updates the URL of a paused or errored download via the remote API.
-func (s *RemoteDownloadService) UpdateURL(id string, newURL string) error {
+func (s *RemoteDownloadService) UpdateURL(ctx context.Context, id string, newURL string) error {
 	req := map[string]string{
 		"url": newURL,
 	}
-	resp, err := s.doRequest("PUT", "/update-url?id="+url.QueryEscape(id), req)
+	resp, err := s.doRequest(ctx, "PUT", "/update-url?id="+url.QueryEscape(id), req)
 	if err != nil {
 		return err
 	}
@@ -218,8 +218,8 @@ func (s *RemoteDownloadService) UpdateURL(id string, newURL string) error {
 }
 
 // Delete cancels and removes a download.
-func (s *RemoteDownloadService) Delete(id string) error {
-	resp, err := s.doRequest("POST", "/delete?id="+url.QueryEscape(id), nil)
+func (s *RemoteDownloadService) Delete(ctx context.Context, id string) error {
+	resp, err := s.doRequest(ctx, "POST", "/delete?id="+url.QueryEscape(id), nil)
 	// Some APIs use DELETE method, checking previous implementation in server it supports both POST and DELETE
 	// but mostly POST for actions. Let's stick to POST as per server implementation.
 	if err != nil {

@@ -16,10 +16,10 @@ import (
 )
 
 // AddDownloadFunc is the lifecycle's handoff into the engine-facing queue layer.
-type AddDownloadFunc func(string, string, string, []string, map[string]string, bool, int64, bool) (string, error)
+type AddDownloadFunc func(context.Context, string, string, string, []string, map[string]string, bool, int64, bool) (string, error)
 
 // AddDownloadWithIDFunc preserves caller-chosen ids when a remote/UI layer already owns them.
-type AddDownloadWithIDFunc func(string, string, string, []string, map[string]string, string, int64, bool) (string, error)
+type AddDownloadWithIDFunc func(context.Context, string, string, string, []string, map[string]string, string, int64, bool) (string, error)
 
 // IsNameActiveFunc lets routing treat in-flight downloads as filename conflicts within a directory.
 type IsNameActiveFunc func(dir, name string) bool
@@ -54,14 +54,14 @@ var settingsRefreshTTL = time.Second
 var reserveWorkingFile = precreateWorkingFile
 
 func precreateWorkingFile(destPath, filename string) error {
-	if err := os.MkdirAll(destPath, 0o755); err != nil {
+	if err := os.MkdirAll(destPath, 0o750); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
 	surgePath := filepath.Join(destPath, filename) + types.IncompleteSuffix
 	// Exclusive create turns the .surge file into the reservation itself, so two
 	// concurrent enqueues cannot silently target the same working path.
-	file, err := os.OpenFile(surgePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	file, err := os.OpenFile(surgePath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to pre-create working file: %w", err)
 	}
@@ -196,7 +196,7 @@ func (mgr *LifecycleManager) Enqueue(ctx context.Context, req *DownloadRequest) 
 
 	utils.Debug("Lifecycle: Enqueue %s (Filename: %s)", req.URL, req.Filename)
 	return mgr.enqueueResolved(ctx, req, func(finalPath, finalFilename string, probe *ProbeResult) (string, error) {
-		return mgr.addFunc(
+		return mgr.addFunc(ctx,
 			req.URL,
 			finalPath,
 			finalFilename,
@@ -217,7 +217,7 @@ func (mgr *LifecycleManager) EnqueueWithID(ctx context.Context, req *DownloadReq
 
 	utils.Debug("Lifecycle: EnqueueWithID %s (%s)", req.URL, requestID)
 	return mgr.enqueueResolved(ctx, req, func(finalPath, finalFilename string, probe *ProbeResult) (string, error) {
-		return mgr.addWithIDFunc(
+		return mgr.addWithIDFunc(ctx,
 			req.URL,
 			finalPath,
 			finalFilename,

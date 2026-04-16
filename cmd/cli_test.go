@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/SurgeDM/Surge/internal/config"
 	"github.com/SurgeDM/Surge/internal/core"
@@ -112,7 +113,7 @@ func TestResolveDownloadID_StrictRemoteDoesNotFallbackToDBOnRemoteError(t *testi
 		ID:       "11223344-1234-5678-90ab-cdef12345678",
 		Filename: "db-only.bin",
 	}
-	if err := state.AddToMasterList(entry); err != nil {
+	if err := state.AddToMasterList(context.Background(), entry); err != nil {
 		t.Fatalf("failed to seed db entry: %v", err)
 	}
 
@@ -151,7 +152,7 @@ func TestResolveDownloadID_LocalModeFallsBackToDBWhenRemoteListFails(t *testing.
 		ID:       "99aabbcc-1234-5678-90ab-cdef12345678",
 		Filename: "fallback.bin",
 	}
-	if err := state.AddToMasterList(entry); err != nil {
+	if err := state.AddToMasterList(context.Background(), entry); err != nil {
 		t.Fatalf("failed to seed db entry: %v", err)
 	}
 
@@ -451,7 +452,7 @@ func TestRmClean_Offline_Works(t *testing.T) {
 		Downloaded:  100,
 		CompletedAt: 1,
 	}
-	if err := state.AddToMasterList(completed); err != nil {
+	if err := state.AddToMasterList(context.Background(), completed); err != nil {
 		t.Fatalf("failed to seed completed download: %v", err)
 	}
 
@@ -466,7 +467,7 @@ func TestRmClean_Offline_Works(t *testing.T) {
 		}
 	})
 
-	entry, err := state.GetDownload(completed.ID)
+	entry, err := state.GetDownload(context.Background(), completed.ID)
 	if err != nil {
 		t.Fatalf("failed to query completed entry after clean: %v", err)
 	}
@@ -641,7 +642,7 @@ func TestActionCommandsRunE_ReturnAmbiguousIDErrors(t *testing.T) {
 				{ID: "deadbead-1234-5678-90ab-cdef12345678", Filename: "second.bin"},
 			}
 			for _, entry := range entries {
-				if err := state.AddToMasterList(entry); err != nil {
+				if err := state.AddToMasterList(context.Background(), entry); err != nil {
 					t.Fatalf("failed to seed db entry %s: %v", entry.ID, err)
 				}
 			}
@@ -669,7 +670,7 @@ func TestPrintDownloads_FromDatabase_TableAndJSON(t *testing.T) {
 		Downloaded: 512,
 		TotalSize:  1024,
 	}
-	if err := state.AddToMasterList(entry); err != nil {
+	if err := state.AddToMasterList(context.Background(), entry); err != nil {
 		t.Fatalf("failed to seed db entry: %v", err)
 	}
 
@@ -735,7 +736,7 @@ func TestPrintDownloads_StrictRemoteEmpty_DoesNotFallbackToDB(t *testing.T) {
 		Filename: "local-only.bin",
 		Status:   "completed",
 	}
-	if err := state.AddToMasterList(entry); err != nil {
+	if err := state.AddToMasterList(context.Background(), entry); err != nil {
 		t.Fatalf("failed to seed local db entry: %v", err)
 	}
 
@@ -771,7 +772,7 @@ func TestShowDownloadDetails_UsesDatabaseFallback(t *testing.T) {
 		Downloaded: 250,
 		TotalSize:  500,
 	}
-	if err := state.AddToMasterList(entry); err != nil {
+	if err := state.AddToMasterList(context.Background(), entry); err != nil {
 		t.Fatalf("failed to seed db entry: %v", err)
 	}
 
@@ -825,7 +826,10 @@ func TestSendToServer_SuccessAndServerError(t *testing.T) {
 				_, _ = w.Write([]byte(tt.body))
 			})
 
-			server := &http.Server{Handler: mux}
+			server := &http.Server{
+				Handler:           mux,
+				ReadHeaderTimeout: 5 * time.Second,
+			}
 			go func() { _ = server.Serve(ln) }()
 			t.Cleanup(func() {
 				_ = server.Close()
@@ -862,7 +866,10 @@ func TestSendToServer_UsesBearerTokenFromEnv(t *testing.T) {
 		_, _ = w.Write([]byte(`{"id":"ok"}`))
 	})
 
-	server := &http.Server{Handler: mux}
+	server := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 	go func() { _ = server.Serve(ln) }()
 	t.Cleanup(func() { _ = server.Close() })
 
@@ -892,7 +899,10 @@ func TestGetRemoteDownloads_UsesBearerTokenFromEnv(t *testing.T) {
 		_, _ = w.Write([]byte(`[{"id":"123","filename":"foo.bin","status":"downloading"}]`))
 	})
 
-	server := &http.Server{Handler: mux}
+	server := &http.Server{
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 	go func() { _ = server.Serve(ln) }()
 	t.Cleanup(func() { _ = server.Close() })
 
@@ -943,7 +953,7 @@ func TestGetRemoteDownloads_NonOKAndInvalidJSON(t *testing.T) {
 
 func TestProcessDownloads_RemoteAndLocal(t *testing.T) {
 	t.Run("remote-mode", func(t *testing.T) {
-		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 		if err != nil {
 			t.Fatalf("listen failed: %v", err)
 		}
@@ -956,7 +966,10 @@ func TestProcessDownloads_RemoteAndLocal(t *testing.T) {
 			w.WriteHeader(http.StatusAccepted)
 			_, _ = w.Write([]byte(`{"id":"ok"}`))
 		})
-		server := &http.Server{Handler: mux}
+		server := &http.Server{
+			Handler:           mux,
+			ReadHeaderTimeout: 5 * time.Second,
+		}
 		go func() { _ = server.Serve(ln) }()
 		t.Cleanup(func() { _ = server.Close() })
 

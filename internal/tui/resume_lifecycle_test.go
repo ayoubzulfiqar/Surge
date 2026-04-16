@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -115,7 +116,7 @@ func TestResume_RespectsOriginalPath_WhenDefaultChanges(t *testing.T) {
 		PausedAt:   time.Now().Unix(),
 		CreatedAt:  time.Now().Unix(),
 	}
-	err = state.SaveState(dm.URL, dm.Destination, manualState)
+	err = state.SaveState(context.Background(), dm.URL, dm.Destination, manualState)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,7 +128,7 @@ func TestResume_RespectsOriginalPath_WhenDefaultChanges(t *testing.T) {
 	}
 
 	// 7. Simulate Resume logic
-	paused, err := state.LoadPausedDownloads()
+	paused, err := state.LoadPausedDownloads(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

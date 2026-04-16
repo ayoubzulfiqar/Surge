@@ -44,7 +44,7 @@ func (f *fakeShutdownService) StreamEvents(context.Context) (<-chan interface{},
 	return ch, func() { close(ch) }, nil
 }
 
-func (f *fakeShutdownService) GetStatus(string) (*types.DownloadStatus, error) {
+func (f *fakeShutdownService) GetStatus(context.Context, string) (*types.DownloadStatus, error) {
 	return nil, nil
 }
 

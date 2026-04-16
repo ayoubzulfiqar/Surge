@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -74,7 +75,7 @@ func TestAutoResume_Enabled(t *testing.T) {
 		PausedAt:   time.Now().Unix(),
 		CreatedAt:  time.Now().Unix(),
 	}
-	if err := state.SaveState(testURL, testDest, manualState); err != nil {
+	if err := state.SaveState(context.Background(), testURL, testDest, manualState); err != nil {
 		t.Fatal(err)
 	}
 
@@ -157,7 +158,7 @@ func TestAutoResume_Disabled(t *testing.T) {
 		PausedAt:   time.Now().Unix(),
 		CreatedAt:  time.Now().Unix(),
 	}
-	if err := state.SaveState(testURL, testDest, manualState); err != nil {
+	if err := state.SaveState(context.Background(), testURL, testDest, manualState); err != nil {
 		t.Fatal(err)
 	}
 

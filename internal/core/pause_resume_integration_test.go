@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +28,7 @@ func waitForDownloadStatus(
 	var lastErr error
 
 	for time.Now().Before(deadline) {
-		st, err := svc.GetStatus(id)
+		st, err := svc.GetStatus(context.Background(), id)
 		last = st
 		lastErr = err
 		if err == nil && st != nil && predicate(st) {
@@ -67,7 +68,7 @@ func waitForSavedStateByID(
 	var lastErr error
 
 	for time.Now().Before(deadline) {
-		states, err := state.LoadStates([]string{id})
+		states, err := state.LoadStates(context.Background(), []string{id})
 		if err != nil {
 			lastErr = err
 			time.Sleep(50 * time.Millisecond)
@@ -177,7 +178,7 @@ func TestIntegration_PauseResume_HotPath_Aggregates(t *testing.T) {
 	if f, err := os.Create(destPath + ".surge"); err == nil {
 		_ = f.Close()
 	}
-	id, err := svc.Add(server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
+	id, err := svc.Add(context.Background(), server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
 	if err != nil {
 		t.Fatalf("add failed: %v", err)
 	}
@@ -194,7 +195,7 @@ func TestIntegration_PauseResume_HotPath_Aggregates(t *testing.T) {
 	}
 	requireProgressClose(t, start.Progress, progressFrom(start.Downloaded, start.TotalSize), "before-pause")
 
-	if err := svc.Pause(id); err != nil {
+	if err := svc.Pause(context.Background(), id); err != nil {
 		t.Fatalf("pause failed: %v", err)
 	}
 
@@ -235,7 +236,7 @@ func TestIntegration_PauseResume_HotPath_Aggregates(t *testing.T) {
 		t.Fatalf("saved dest path mismatch: got=%q want=%q", saved1.DestPath, destPath)
 	}
 
-	entry1, err := state.GetDownload(id)
+	entry1, err := state.GetDownload(context.Background(), id)
 	if err != nil {
 		t.Fatalf("state.GetDownload failed: %v", err)
 	}
@@ -257,7 +258,7 @@ func TestIntegration_PauseResume_HotPath_Aggregates(t *testing.T) {
 		)
 	}
 
-	if err := svc.Resume(id); err != nil {
+	if err := svc.Resume(context.Background(), id); err != nil {
 		t.Fatalf("resume failed: %v", err)
 	}
 
@@ -281,7 +282,7 @@ func TestIntegration_PauseResume_HotPath_Aggregates(t *testing.T) {
 	}
 	requireProgressClose(t, resumedAdvanced.Progress, progressFrom(resumedAdvanced.Downloaded, resumedAdvanced.TotalSize), "resumed-advanced")
 
-	if err := svc.Pause(id); err != nil {
+	if err := svc.Pause(context.Background(), id); err != nil {
 		t.Fatalf("second pause failed: %v", err)
 	}
 
@@ -337,7 +338,7 @@ func TestIntegration_PauseResume_ColdPath_StateContinuity(t *testing.T) {
 	if f, err := os.Create(destPath + ".surge"); err == nil {
 		_ = f.Close()
 	}
-	id, err := svc1.Add(server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
+	id, err := svc1.Add(context.Background(), server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
 	if err != nil {
 		t.Fatalf("add failed: %v", err)
 	}
@@ -349,7 +350,7 @@ func TestIntegration_PauseResume_ColdPath_StateContinuity(t *testing.T) {
 			st.Speed > 0
 	})
 
-	if err := svc1.Pause(id); err != nil {
+	if err := svc1.Pause(context.Background(), id); err != nil {
 		t.Fatalf("pause failed: %v", err)
 	}
 
@@ -375,7 +376,7 @@ func TestIntegration_PauseResume_ColdPath_StateContinuity(t *testing.T) {
 	evCleanup2 := startEventWorkerForTest(t, svc2)
 	defer evCleanup2()
 
-	if err := svc2.Resume(id); err != nil {
+	if err := svc2.Resume(context.Background(), id); err != nil {
 		t.Fatalf("cold resume failed: %v", err)
 	}
 
@@ -397,7 +398,7 @@ func TestIntegration_PauseResume_ColdPath_StateContinuity(t *testing.T) {
 			st.Speed > 0
 	})
 
-	if err := svc2.Pause(id); err != nil {
+	if err := svc2.Pause(context.Background(), id); err != nil {
 		t.Fatalf("second pause after cold resume failed: %v", err)
 	}
 
@@ -417,7 +418,7 @@ func TestIntegration_PauseResume_ColdPath_StateContinuity(t *testing.T) {
 	}
 
 	// We can remove the sleep since waitForSavedStateByID now waits for the exact condition.
-	finalSaved, _ := state.LoadStates([]string{id})
+	finalSaved, _ := state.LoadStates(context.Background(), []string{id})
 	savedFinal := finalSaved[id]
 
 	if savedFinal == nil {
@@ -428,7 +429,7 @@ func TestIntegration_PauseResume_ColdPath_StateContinuity(t *testing.T) {
 		t.Fatalf("saved downloaded mismatch after cold resume: saved=%d status=%d", savedFinal.Downloaded, paused2.Downloaded)
 	}
 
-	entry2, err := state.GetDownload(id)
+	entry2, err := state.GetDownload(context.Background(), id)
 	if err != nil {
 		t.Fatalf("state.GetDownload failed: %v", err)
 	}
@@ -506,7 +507,7 @@ func TestIntegration_PauseResume_ResumeBatchRejectsPausing(t *testing.T) {
 		})
 	}
 
-	errs := svc.ResumeBatch([]string{id})
+	errs := svc.ResumeBatch(context.Background(), []string{id})
 	if len(errs) != 1 {
 		t.Fatalf("unexpected errors length: got=%d want=1", len(errs))
 	}
@@ -518,7 +519,7 @@ func TestIntegration_PauseResume_ResumeBatchRejectsPausing(t *testing.T) {
 		t.Fatalf("unexpected error: got=%q want=%q", got, want)
 	}
 
-	st, err := svc.GetStatus(id)
+	st, err := svc.GetStatus(context.Background(), id)
 	if err != nil {
 		t.Fatalf("GetStatus failed: %v", err)
 	}
@@ -565,7 +566,7 @@ func TestIntegration_PauseResume_StatusFormulaInvariants(t *testing.T) {
 	if f, err := os.Create(destPath + ".surge"); err == nil {
 		_ = f.Close()
 	}
-	id, err := svc.Add(server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
+	id, err := svc.Add(context.Background(), server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
 	if err != nil {
 		t.Fatalf("add failed: %v", err)
 	}
@@ -581,7 +582,7 @@ func TestIntegration_PauseResume_StatusFormulaInvariants(t *testing.T) {
 		t.Fatalf("active ETA must be non-negative, got %d", active.ETA)
 	}
 
-	if err := svc.Pause(id); err != nil {
+	if err := svc.Pause(context.Background(), id); err != nil {
 		t.Fatalf("pause failed: %v", err)
 	}
 	paused := waitForDownloadStatus(t, svc, id, 20*time.Second, func(st *types.DownloadStatus) bool {
@@ -597,7 +598,7 @@ func TestIntegration_PauseResume_StatusFormulaInvariants(t *testing.T) {
 	}
 
 	// DB-only status path must preserve the same progress invariant.
-	entry, err := state.GetDownload(id)
+	entry, err := state.GetDownload(context.Background(), id)
 	if err != nil {
 		t.Fatalf("GetDownload failed: %v", err)
 	}
@@ -605,7 +606,7 @@ func TestIntegration_PauseResume_StatusFormulaInvariants(t *testing.T) {
 		t.Fatal("expected paused entry in DB")
 	}
 
-	statuses, err := svc.List()
+	statuses, err := svc.List(context.Background())
 	if err != nil {
 		t.Fatalf("List failed: %v", err)
 	}
@@ -663,7 +664,7 @@ func TestIntegration_PauseResume_ConcreteSnapshotDebugString(t *testing.T) {
 	if f, err := os.Create(destPath + ".surge"); err == nil {
 		_ = f.Close()
 	}
-	id, err := svc.Add(server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
+	id, err := svc.Add(context.Background(), server.URL(), outputDir, filename, nil, nil, false, fileSize, true)
 	if err != nil {
 		t.Fatalf("add failed: %v", err)
 	}
@@ -672,7 +673,7 @@ func TestIntegration_PauseResume_ConcreteSnapshotDebugString(t *testing.T) {
 		return st.Status == "downloading" && st.Downloaded > 512*1024
 	})
 
-	if err := svc.Pause(id); err != nil {
+	if err := svc.Pause(context.Background(), id); err != nil {
 		t.Fatalf("pause failed: %v", err)
 	}
 
@@ -683,7 +684,7 @@ func TestIntegration_PauseResume_ConcreteSnapshotDebugString(t *testing.T) {
 		return s.Downloaded == paused.Downloaded && s.Elapsed > 0
 	})
 
-	entry, err := state.GetDownload(id)
+	entry, err := state.GetDownload(context.Background(), id)
 	if err != nil {
 		t.Fatalf("GetDownload failed: %v", err)
 	}
@@ -738,7 +739,7 @@ func TestIntegration_PauseResumeBatch_ColdPath(t *testing.T) {
 	if f, err := os.Create(destPath1 + ".surge"); err == nil {
 		_ = f.Close()
 	}
-	id1, err := svc1.Add(server.URL(), outputDir, "cold1.bin", nil, nil, false, fileSize, true)
+	id1, err := svc1.Add(context.Background(), server.URL(), outputDir, "cold1.bin", nil, nil, false, fileSize, true)
 	if err != nil {
 		t.Fatalf("add 1 failed: %v", err)
 	}
@@ -747,7 +748,7 @@ func TestIntegration_PauseResumeBatch_ColdPath(t *testing.T) {
 	if f, err := os.Create(destPath2 + ".surge"); err == nil {
 		_ = f.Close()
 	}
-	id2, err := svc1.Add(server.URL(), outputDir, "cold2.bin", nil, nil, false, fileSize, true)
+	id2, err := svc1.Add(context.Background(), server.URL(), outputDir, "cold2.bin", nil, nil, false, fileSize, true)
 	if err != nil {
 		t.Fatalf("add 2 failed: %v", err)
 	}
@@ -759,10 +760,10 @@ func TestIntegration_PauseResumeBatch_ColdPath(t *testing.T) {
 		return st.Status == "downloading" && st.Downloaded > 1024*512
 	})
 
-	if err := svc1.Pause(id1); err != nil {
+	if err := svc1.Pause(context.Background(), id1); err != nil {
 		t.Fatalf("pause 1 failed: %v", err)
 	}
-	if err := svc1.Pause(id2); err != nil {
+	if err := svc1.Pause(context.Background(), id2); err != nil {
 		t.Fatalf("pause 2 failed: %v", err)
 	}
 
@@ -788,14 +789,14 @@ func TestIntegration_PauseResumeBatch_ColdPath(t *testing.T) {
 	if f, err := os.Create(destPathHot + ".surge"); err == nil {
 		_ = f.Close()
 	}
-	idHot, err := svc2.Add(server.URL(), outputDir, "hot1.bin", nil, nil, false, fileSize, true)
+	idHot, err := svc2.Add(context.Background(), server.URL(), outputDir, "hot1.bin", nil, nil, false, fileSize, true)
 	if err != nil {
 		t.Fatalf("add hot failed: %v", err)
 	}
 	waitForDownloadStatus(t, svc2, idHot, 25*time.Second, func(st *types.DownloadStatus) bool {
 		return st.Status == "downloading" && st.Downloaded > 1024*512
 	})
-	if err := svc2.Pause(idHot); err != nil {
+	if err := svc2.Pause(context.Background(), idHot); err != nil {
 		t.Fatalf("pause hot failed: %v", err)
 	}
 	waitForDownloadStatus(t, svc2, idHot, 25*time.Second, func(st *types.DownloadStatus) bool { return st.Status == "paused" })
@@ -804,7 +805,7 @@ func TestIntegration_PauseResumeBatch_ColdPath(t *testing.T) {
 	missingID := "non-existent-id"
 	batch := []string{id1, id2, idHot, missingID}
 
-	errs := svc2.ResumeBatch(batch)
+	errs := svc2.ResumeBatch(context.Background(), batch)
 
 	// Validate errors
 	if len(errs) != 4 {

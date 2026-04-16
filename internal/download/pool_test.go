@@ -103,7 +103,7 @@ func TestWorkerPool_Pause_NonExistentDownload(t *testing.T) {
 	pool := NewWorkerPool(ch, 3)
 
 	// Should not panic when pausing non-existent download
-	pool.Pause("non-existent-id")
+	pool.Pause(context.Background(), "non-existent-id")
 
 	// No message should be sent
 	select {
@@ -133,7 +133,7 @@ func TestWorkerPool_Pause_ActiveDownload(t *testing.T) {
 	}
 	pool.mu.Unlock()
 
-	pool.Pause("test-id")
+	pool.Pause(context.Background(), "test-id")
 
 	// Check that state is paused
 	if !state.IsPaused() {
@@ -163,7 +163,7 @@ func TestWorkerPool_Pause_NilState(t *testing.T) {
 	pool.mu.Unlock()
 
 	// Should not panic with nil state
-	pool.Pause("test-id")
+	pool.Pause(context.Background(), "test-id")
 
 	select {
 	case <-canceled:
@@ -265,7 +265,7 @@ func TestWorkerPool_Cancel_NonExistentDownload(t *testing.T) {
 	pool := NewWorkerPool(ch, 3)
 
 	// Should not panic
-	pool.Cancel("non-existent-id")
+	pool.Cancel(context.Background(), "non-existent-id")
 }
 
 func TestWorkerPool_Cancel_RemovesFromMap(t *testing.T) {
@@ -285,7 +285,7 @@ func TestWorkerPool_Cancel_RemovesFromMap(t *testing.T) {
 	pool.downloads["test-id"] = ad
 	pool.mu.Unlock()
 
-	result := pool.Cancel("test-id")
+	result := pool.Cancel(context.Background(), "test-id")
 
 	if !result.Found {
 		t.Error("Expected CancelResult.Found to be true")
@@ -325,7 +325,7 @@ func TestWorkerPool_Cancel_CallsCancelFunc(t *testing.T) {
 	}
 	pool.mu.Unlock()
 
-	result := pool.Cancel("test-id")
+	result := pool.Cancel(context.Background(), "test-id")
 	if !result.Found {
 		t.Error("Expected CancelResult.Found")
 	}
@@ -362,7 +362,7 @@ func TestWorkerPool_Cancel_MarksDone(t *testing.T) {
 	}
 	pool.mu.Unlock()
 
-	result := pool.Cancel("test-id")
+	result := pool.Cancel(context.Background(), "test-id")
 	if !result.Found {
 		t.Error("Expected CancelResult.Found")
 	}
@@ -395,7 +395,7 @@ func TestWorkerPool_Cancel_DoesNotRemoveIncompleteFile(t *testing.T) {
 	}
 	pool.mu.Unlock()
 
-	result := pool.Cancel("test-id")
+	result := pool.Cancel(context.Background(), "test-id")
 	if !result.Found {
 		t.Fatal("expected cancel to find download")
 	}
@@ -418,7 +418,7 @@ func TestWorkerPool_Cancel_QueuedDownload_RemovesFromQueueAndReturnsResult(t *te
 		},
 	}
 
-	result := pool.Cancel("queued-id")
+	result := pool.Cancel(context.Background(), "queued-id")
 
 	pool.mu.RLock()
 	_, exists := pool.queued["queued-id"]
@@ -622,8 +622,8 @@ func TestWorkerPool_ConcurrentPauseCancel(t *testing.T) {
 		id := string(rune('a' + i))
 		go func(id string) {
 			defer wg.Done()
-			pool.Pause(id)
-			pool.Cancel(id)
+			pool.Pause(context.Background(), id)
+			pool.Cancel(context.Background(), id)
 		}(id)
 	}
 
@@ -801,7 +801,7 @@ func TestWorkerPool_PauseResume_Idempotency(t *testing.T) {
 	pool.mu.Unlock()
 
 	// 1. First Pause
-	pool.Pause("idempotent-test")
+	pool.Pause(context.Background(), "idempotent-test")
 
 	// Should be Pausing
 	if !state.IsPausing() {
@@ -809,7 +809,7 @@ func TestWorkerPool_PauseResume_Idempotency(t *testing.T) {
 	}
 
 	// 2. Second Pause (Idempotent)
-	pool.Pause("idempotent-test")
+	pool.Pause(context.Background(), "idempotent-test")
 
 	// Manually transition to Paused (simulating worker finish)
 	state.SetPausing(false)
@@ -875,7 +875,7 @@ func TestWorkerPool_UpdateURL(t *testing.T) {
 	pool.mu.Unlock()
 
 	// 1. Try updating a running download — should fail
-	err := pool.UpdateURL("active-id", "http://example.com/new.zip")
+	err := pool.UpdateURL(context.Background(), "active-id", "http://example.com/new.zip")
 	if err == nil {
 		t.Error("Expected error when updating URL for active download")
 	}
@@ -884,7 +884,7 @@ func TestWorkerPool_UpdateURL(t *testing.T) {
 	activeState.Paused.Store(true)
 	ad.running.Store(false)
 
-	err = pool.UpdateURL("active-id", "http://example.com/new.zip")
+	err = pool.UpdateURL(context.Background(), "active-id", "http://example.com/new.zip")
 	if err != nil {
 		t.Errorf("Expected no error for paused download, got %v", err)
 	}
@@ -902,7 +902,7 @@ func TestWorkerPool_UpdateURL(t *testing.T) {
 	pool.queued["queued-id"] = types.DownloadConfig{ID: "queued-id"}
 	pool.mu.Unlock()
 
-	err = pool.UpdateURL("queued-id", "http://example.com/new.zip")
+	err = pool.UpdateURL(context.Background(), "queued-id", "http://example.com/new.zip")
 	if err == nil || err.Error() != "cannot update URL for a queued download, please cancel or wait for it to start" {
 		t.Errorf("Expected queued error, got %v", err)
 	}

@@ -25,7 +25,7 @@ func TestIntegration_PauseResume(t *testing.T) {
 	}
 	defer func() { _ = os.RemoveAll(tmpDir) }()
 
-	// Set XDG_CONFIG_HOME to tmpDir so state.GetDB() creates DB there
+	// Set XDG_CONFIG_HOME to tmpDir so state.GetDB(context.Background()) creates DB there
 	// The config package uses "surge" subdirectory
 	configDir := tmpDir // XDG_CONFIG_HOME usually contains the app dir
 	t.Setenv("XDG_CONFIG_HOME", configDir)
@@ -36,7 +36,7 @@ func TestIntegration_PauseResume(t *testing.T) {
 	// Force DB init
 	dbPath := filepath.Join(tmpDir, "surge.db")
 	state.Configure(dbPath)
-	if _, err := state.GetDB(); err != nil {
+	if _, err := state.GetDB(context.Background()); err != nil {
 		t.Fatalf("Failed to init DB: %v", err)
 	}
 	defer state.CloseDB()
@@ -66,7 +66,7 @@ func TestIntegration_PauseResume(t *testing.T) {
 	eventWG.Add(1)
 	go func() {
 		defer eventWG.Done()
-		mgr.StartEventWorker(progressCh)
+		mgr.StartEventWorker(context.Background(), progressCh)
 	}()
 	defer func() {
 		close(progressCh)
@@ -133,7 +133,7 @@ func TestIntegration_PauseResume(t *testing.T) {
 	var savedState *types.DownloadState
 	deadline = time.Now().Add(5 * time.Second)
 	for time.Now().Before(deadline) {
-		savedState, err = state.LoadState(url, destPath)
+		savedState, err = state.LoadState(context.Background(), url, destPath)
 		if err == nil && savedState != nil && savedState.Downloaded > 0 && len(savedState.Tasks) > 0 {
 			break
 		}
@@ -190,7 +190,7 @@ func TestIntegration_PauseResume(t *testing.T) {
 	for time.Now().Before(deadline) {
 		_, surgeErr := os.Stat(incompletePath)
 		finalInfo, finalErr := os.Stat(destPath)
-		entry, _ := state.GetDownload(cfg.ID)
+		entry, _ := state.GetDownload(context.Background(), cfg.ID)
 		if os.IsNotExist(surgeErr) && finalErr == nil && finalInfo.Size() == fileSize && entry != nil && entry.Status == "completed" {
 			completed = true
 			break
@@ -211,7 +211,7 @@ func TestIntegration_PauseResume(t *testing.T) {
 	if finalInfo.Size() != fileSize {
 		t.Errorf("Final file size = %d, want %d", finalInfo.Size(), fileSize)
 	}
-	entry, _ := state.GetDownload(cfg.ID)
+	entry, _ := state.GetDownload(context.Background(), cfg.ID)
 	if entry == nil || entry.Status != "completed" {
 		t.Fatalf("download entry not marked completed, got %+v", entry)
 	}

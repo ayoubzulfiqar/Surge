@@ -9,7 +9,7 @@ import (
 )
 
 func handleHealth(port int) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSONResponse(w, http.StatusOK, map[string]interface{}{
 			"status": "ok",
 			"port":   port,
@@ -24,8 +24,8 @@ func handleDownloadRoute(defaultOutputDir string, service core.DownloadService) 
 }
 
 func handlePause(service core.DownloadService) func(http.ResponseWriter, *http.Request, string) {
-	return func(w http.ResponseWriter, _ *http.Request, id string) {
-		if err := service.Pause(id); err != nil {
+	return func(w http.ResponseWriter, r *http.Request, id string) {
+		if err := service.Pause(r.Context(), id); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -34,8 +34,8 @@ func handlePause(service core.DownloadService) func(http.ResponseWriter, *http.R
 }
 
 func handleResume(service core.DownloadService) func(http.ResponseWriter, *http.Request, string) {
-	return func(w http.ResponseWriter, _ *http.Request, id string) {
-		if err := service.Resume(id); err != nil {
+	return func(w http.ResponseWriter, r *http.Request, id string) {
+		if err := service.Resume(r.Context(), id); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -44,8 +44,8 @@ func handleResume(service core.DownloadService) func(http.ResponseWriter, *http.
 }
 
 func handleDelete(service core.DownloadService) func(http.ResponseWriter, *http.Request, string) {
-	return func(w http.ResponseWriter, _ *http.Request, id string) {
-		if err := service.Delete(id); err != nil {
+	return func(w http.ResponseWriter, r *http.Request, id string) {
+		if err := service.Delete(r.Context(), id); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -54,8 +54,8 @@ func handleDelete(service core.DownloadService) func(http.ResponseWriter, *http.
 }
 
 func handleList(service core.DownloadService) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		statuses, err := service.List()
+	return func(w http.ResponseWriter, r *http.Request) {
+		statuses, err := service.List(r.Context())
 		if err != nil {
 			http.Error(w, "Failed to list downloads: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -65,8 +65,8 @@ func handleList(service core.DownloadService) http.HandlerFunc {
 }
 
 func handleHistory(service core.DownloadService) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		history, err := service.History()
+	return func(w http.ResponseWriter, r *http.Request) {
+		history, err := service.History(r.Context())
 		if err != nil {
 			http.Error(w, "Failed to retrieve history: "+err.Error(), http.StatusInternalServerError)
 			return
@@ -139,7 +139,7 @@ func handleUpdateURL(service core.DownloadService) func(http.ResponseWriter, *ht
 			return
 		}
 
-		if err := service.UpdateURL(id, newURL); err != nil {
+		if err := service.UpdateURL(r.Context(), id, newURL); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
