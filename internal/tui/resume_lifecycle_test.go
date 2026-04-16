@@ -46,7 +46,7 @@ func TestResume_RespectsOriginalPath_WhenDefaultChanges(t *testing.T) {
 	settings := config.DefaultSettings()
 	settings.General.DefaultDownloadDir = dirA
 
-	m := RootModel{
+	m := &RootModel{
 		Settings:  settings,
 		Service:   core.NewLocalDownloadServiceWithInput(pool, ch),
 		downloads: []*DownloadModel{},

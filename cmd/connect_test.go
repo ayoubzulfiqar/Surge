@@ -97,7 +97,7 @@ func TestNewRemoteRootModel_DownloadRequestUsesServiceAdd(t *testing.T) {
 		t.Fatal("expected remote add path to complete synchronously without orchestration cmd")
 	}
 
-	root, ok := updated.(tui.RootModel)
+	root, ok := updated.(*tui.RootModel)
 	if !ok {
 		t.Fatalf("unexpected updated model type %T", updated)
 	}

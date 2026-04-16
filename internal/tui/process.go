@@ -78,7 +78,7 @@ func (m *RootModel) processProgressMsg(msg events.ProgressMsg) tea.Cmd {
 }
 
 // startDownload initiates a new download
-func (m RootModel) startDownload(url string, mirrors []string, headers map[string]string, path string, isDefaultPath bool, filename, id string) (RootModel, tea.Cmd) {
+func (m *RootModel) startDownload(url string, mirrors []string, headers map[string]string, path string, isDefaultPath bool, filename, id string) (*RootModel, tea.Cmd) {
 	if m.Service == nil {
 		m.addLogEntry(LogStyleError.Render("\u2716 Service unavailable"))
 		return m, nil
@@ -217,7 +217,7 @@ func (m RootModel) startDownload(url string, mirrors []string, headers map[strin
 	return m, cmd
 }
 
-func (m RootModel) defaultDownloadPath() string {
+func (m *RootModel) defaultDownloadPath() string {
 	if m.Settings != nil {
 		if path := strings.TrimSpace(m.Settings.General.DefaultDownloadDir); path != "" {
 			return path
@@ -226,13 +226,13 @@ func (m RootModel) defaultDownloadPath() string {
 	return "."
 }
 
-func (m RootModel) downloadEnqueueContext() context.Context {
+func (m *RootModel) downloadEnqueueContext() context.Context {
 	if m.enqueueCtx != nil {
 		return m.enqueueCtx
 	}
 	return context.Background()
 }
 
-func (m RootModel) isDefaultDownloadPath(path string) bool {
+func (m *RootModel) isDefaultDownloadPath(path string) bool {
 	return utils.EnsureAbsPath(path) == utils.EnsureAbsPath(m.defaultDownloadPath())
 }

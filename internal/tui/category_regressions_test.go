@@ -11,13 +11,13 @@ import (
 	"github.com/SurgeDM/Surge/internal/download"
 )
 
-func newCategoryTestModel(t *testing.T, settings *config.Settings) RootModel {
+func newCategoryTestModel(t *testing.T, settings *config.Settings) *RootModel {
 	t.Helper()
 	ch := make(chan any, 16)
 	pool := download.NewWorkerPool(ch, 1)
 	svc := core.NewLocalDownloadServiceWithInput(pool, ch)
 	t.Cleanup(func() { _ = svc.Shutdown() })
-	return RootModel{
+	return &RootModel{
 		Settings: settings,
 		Service:  svc,
 		list:     NewDownloadList(80, 20),
@@ -68,7 +68,7 @@ func TestUpdate_InputSubmit_BlankPathUsesDefaultPathRouting(t *testing.T) {
 	m.inputs[3].SetValue("song.mp3")
 
 	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	m2 := updated.(RootModel)
+	m2 := updated.(*RootModel)
 
 	if len(m2.downloads) != 1 {
 		t.Fatalf("expected 1 download, got %d", len(m2.downloads))
@@ -97,7 +97,7 @@ func TestUpdate_DuplicateContinuePreservesDefaultPathRouting(t *testing.T) {
 	m.pendingFilename = "movie.mp4"
 
 	updated, _ := m.Update(tea.KeyPressMsg{Code: 'c', Text: "c"})
-	m2 := updated.(RootModel)
+	m2 := updated.(*RootModel)
 
 	if len(m2.downloads) != 1 {
 		t.Fatalf("expected 1 download, got %d", len(m2.downloads))
@@ -126,7 +126,7 @@ func TestUpdate_ExtensionConfirmBlankPathUsesDefaultPathRouting(t *testing.T) {
 	m.inputs[3].SetValue("report.pdf")
 
 	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
-	m2 := updated.(RootModel)
+	m2 := updated.(*RootModel)
 
 	if len(m2.downloads) != 1 {
 		t.Fatalf("expected 1 download, got %d", len(m2.downloads))
@@ -143,7 +143,7 @@ func TestUpdate_CategoryManagerEscRemovesNewPlaceholder(t *testing.T) {
 		{Name: "New Category"},
 	}
 
-	m := RootModel{
+	m := &RootModel{
 		state:         CategoryManagerState,
 		Settings:      settings,
 		keys:          Keys,
@@ -156,7 +156,7 @@ func TestUpdate_CategoryManagerEscRemovesNewPlaceholder(t *testing.T) {
 	}
 
 	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEsc})
-	m2 := updated.(RootModel)
+	m2 := updated.(*RootModel)
 
 	if m2.catMgrEditing {
 		t.Fatal("expected category manager to leave edit mode")
@@ -177,7 +177,7 @@ func TestGetFilteredDownloads_AppliesCategoryFilter(t *testing.T) {
 		{Name: "Documents", Pattern: `(?i)\.pdf$`},
 	}
 
-	m := RootModel{
+	m := &RootModel{
 		Settings:       settings,
 		activeTab:      TabQueued,
 		categoryFilter: "Videos",

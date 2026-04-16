@@ -21,7 +21,7 @@ func (m *RootModel) handleBatchFileSelection(path string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m RootModel) updateFilePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *RootModel) updateFilePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.FilePicker.Cancel) {
 		// Cancel and return to appropriate state
 		if m.SettingsFileBrowsing {
@@ -69,7 +69,7 @@ func (m RootModel) updateFilePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m RootModel) updateBatchFilePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *RootModel) updateBatchFilePicker(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.FilePicker.Cancel) {
 		// Reset filepicker to directory mode and return
 		m.resetFilepickerToDirMode()

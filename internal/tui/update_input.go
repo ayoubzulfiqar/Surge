@@ -20,7 +20,7 @@ func (m *RootModel) blurAllInputs() {
 	}
 }
 
-func (m RootModel) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *RootModel) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.Input.Esc) {
 		m.state = DashboardState
 		return m, nil
@@ -56,7 +56,7 @@ func (m RootModel) updateInput(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m RootModel) submitInputForm() (tea.Model, tea.Cmd) {
+func (m *RootModel) submitInputForm() (tea.Model, tea.Cmd) {
 	inputVal := m.inputs[0].Value()
 	if inputVal == "" {
 		m.blurAllInputs()
@@ -128,7 +128,7 @@ func parseURLInput(input string) (url string, mirrors []string) {
 	return
 }
 
-func (m RootModel) updateExtensionConfirmation(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *RootModel) updateExtensionConfirmation(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.Extension.Browse) && m.focusedInput == 2 {
 		m.ExtensionFileBrowsing = true
 		m.filepickerOriginalPath = m.inputs[2].Value()

@@ -51,7 +51,7 @@ func formatDurationForUI(d time.Duration) string {
 }
 
 // renderModalWithOverlay renders a modal centered on screen with a dark overlay effect
-func (m RootModel) renderModalWithOverlay(modal string) string {
+func (m *RootModel) renderModalWithOverlay(modal string) string {
 	// Place modal centered with dark gray background fill for overlay effect
 	return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, modal,
 		lipgloss.WithWhitespaceChars(" "), // Changed from "░" to avoid terminal rendering glitches
@@ -59,13 +59,13 @@ func (m RootModel) renderModalWithOverlay(modal string) string {
 	)
 }
 
-func (m RootModel) wrapView(content string) tea.View {
+func (m *RootModel) wrapView(content string) tea.View {
 	v := tea.NewView(content)
 	v.AltScreen = true
 	return v
 }
 
-func (m RootModel) View() tea.View {
+func (m *RootModel) View() tea.View {
 	if m.width == 0 {
 		return m.wrapView("Loading...")
 	}
@@ -101,7 +101,7 @@ func (m RootModel) View() tea.View {
 			FocusedInput:    m.focusedInput,
 			BrowseHintIndex: 2,
 			Help:            m.help,
-			HelpKeys:        m.keys.Input,
+			HelpKeys:        &m.keys.Input,
 			BorderColor:     colors.NeonPink,
 		}
 		// Resolve dynamic dimensions
@@ -121,7 +121,7 @@ func (m RootModel) View() tea.View {
 			" Select Directory ",
 			&fp,
 			&m.help,
-			m.keys.FilePicker,
+			&m.keys.FilePicker,
 			colors.NeonPink,
 		)
 		// Resolve dynamic dimensions
@@ -146,7 +146,7 @@ func (m RootModel) View() tea.View {
 			Title:       "\u26a0 Duplicate Detected",
 			Message:     "A download with this URL already exists",
 			Detail:      truncateString(m.duplicateInfo, 50),
-			Keys:        m.keys.Duplicate,
+			Keys:        &m.keys.Duplicate,
 			Help:        m.help,
 			BorderColor: colors.NeonPink,
 		}
@@ -182,7 +182,7 @@ func (m RootModel) View() tea.View {
 			URL:             truncateString(m.pendingURL, 68),
 			BrowseHintIndex: 0,
 			Help:            m.help,
-			HelpKeys:        m.keys.Extension,
+			HelpKeys:        &m.keys.Extension,
 			BorderColor:     colors.NeonCyan,
 		}
 		// Resolve dynamic dimensions
@@ -201,7 +201,7 @@ func (m RootModel) View() tea.View {
 			" Select URL File (.txt) ",
 			&fp,
 			&m.help,
-			m.keys.FilePicker,
+			&m.keys.FilePicker,
 			colors.NeonCyan,
 		)
 		// Resolve dynamic dimensions
@@ -219,7 +219,7 @@ func (m RootModel) View() tea.View {
 			Title:       "Batch Import",
 			Message:     fmt.Sprintf("Add %d downloads?", urlCount),
 			Detail:      truncateString(m.batchFilePath, 50),
-			Keys:        m.keys.BatchConfirm,
+			Keys:        &m.keys.BatchConfirm,
 			Help:        m.help,
 			BorderColor: colors.NeonCyan,
 		}
@@ -242,7 +242,7 @@ func (m RootModel) View() tea.View {
 			Title:       "\u2b06 Update Available",
 			Message:     "A new version of Surge is available: " + m.UpdateInfo.LatestVersion,
 			Detail:      "Current: " + m.UpdateInfo.CurrentVersion,
-			Keys:        m.keys.Update,
+			Keys:        &m.keys.Update,
 			Help:        m.help,
 			BorderColor: colors.NeonCyan,
 		}
@@ -264,7 +264,7 @@ func (m RootModel) View() tea.View {
 			FocusedInput:    0,
 			BrowseHintIndex: -1, // No browse hint needed
 			Help:            m.help,
-			HelpKeys:        m.keys.Input,
+			HelpKeys:        &m.keys.Input,
 			BorderColor:     colors.NeonPink,
 		}
 		// Resolve dynamic dimensions
@@ -281,7 +281,7 @@ func (m RootModel) View() tea.View {
 		w, h := GetDynamicModalDimensions(m.width, m.height, 40, 10, PopupWidth, 22)
 		modal := components.HelpModal{
 			Title:       "Keyboard Shortcuts",
-			HelpKeys:    m.keys.Dashboard,
+			HelpKeys:    &m.keys.Dashboard,
 			Help:        m.help,
 			BorderColor: colors.NeonCyan,
 			Width:       w,
@@ -295,7 +295,7 @@ func (m RootModel) View() tea.View {
 	layout := CalculateDashboardLayout(m.width, m.height)
 
 	// Footer - keybindings on left, version on bottom-right
-	helpText := m.help.View(m.keys.Dashboard)
+	helpText := m.help.View(&m.keys.Dashboard)
 	versionBlue := colors.ThemeColor("#005cc5", "#58a6ff")
 	versionText := lipgloss.NewStyle().Foreground(versionBlue).Render("v" + m.CurrentVersion)
 
@@ -666,7 +666,7 @@ func getDownloadStatus(d *DownloadModel, spinnerView string) string {
 	return status.RenderWithSpinner(spinnerView)
 }
 
-func (m RootModel) calcTotalSpeed() float64 {
+func (m *RootModel) calcTotalSpeed() float64 {
 	total := 0.0
 	for _, d := range m.downloads {
 		// Skip completed downloads
@@ -678,7 +678,7 @@ func (m RootModel) calcTotalSpeed() float64 {
 	return total / float64(config.MB)
 }
 
-func (m RootModel) ComputeViewStats() ViewStats {
+func (m *RootModel) ComputeViewStats() ViewStats {
 	var stats ViewStats
 	for _, d := range m.downloads {
 		switch {
@@ -739,7 +739,7 @@ func renderTabs(activeTab, activeCount, queuedCount, doneCount int) string {
 	return components.RenderTabBar(tabs, activeTab, &ActiveTabStyle, &TabStyle)
 }
 
-func (m RootModel) viewQuitConfirm() string {
+func (m *RootModel) viewQuitConfirm() string {
 	w, h := GetDynamicModalDimensions(m.width, m.height, 40, 8, 60, 10)
 	innerWidth := w - (components.BorderFrameWidth * 2)
 
@@ -788,7 +788,7 @@ func (m RootModel) viewQuitConfirm() string {
 	}
 
 	helpStyle := lipgloss.NewStyle().Foreground(colors.Gray).Width(innerWidth).Align(lipgloss.Center)
-	helpText := helpStyle.Render(m.help.View(m.keys.QuitConfirm))
+	helpText := helpStyle.Render(m.help.View(&m.keys.QuitConfirm))
 
 	var lines []string
 	lines = append(lines, messageStyle.Render("Are you sure you want to quit?"))

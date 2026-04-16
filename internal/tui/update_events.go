@@ -13,7 +13,7 @@ import (
 	"github.com/SurgeDM/Surge/internal/utils"
 )
 
-func (m RootModel) updateEvents(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *RootModel) updateEvents(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 

@@ -15,7 +15,7 @@ import (
 )
 
 // viewSettings renders the Btop-style settings page
-func (m RootModel) viewSettings() string {
+func (m *RootModel) viewSettings() string {
 	if m.width <= 0 || m.height <= 0 {
 		return ""
 	}
@@ -124,7 +124,7 @@ func shortSettingsCategoryLabel(label string) string {
 	}
 }
 
-func (m RootModel) renderSettingsTabBar(categories []string, activeTab int, maxWidth int) string {
+func (m *RootModel) renderSettingsTabBar(categories []string, activeTab int, maxWidth int) string {
 	if maxWidth < 1 {
 		maxWidth = 1
 	}
@@ -162,12 +162,12 @@ func (m RootModel) renderSettingsTabBar(categories []string, activeTab int, maxW
 		Render(fallback)
 }
 
-func (m RootModel) renderSettingsHelp(width int) string {
+func (m *RootModel) renderSettingsHelp(width int) string {
 	if width < 1 {
 		width = 1
 	}
 
-	helpText := m.help.View(m.keys.Settings)
+	helpText := m.help.View(&m.keys.Settings)
 	if width < 60 {
 		helpText = "esc: save/close  tab: next tab  enter: edit"
 	}
@@ -281,7 +281,7 @@ func renderSettingsListViewport(settingsMeta []config.SettingMeta, selectedRow, 
 	return strings.Join(lines, "\n")
 }
 
-func (m RootModel) renderSettingsDetailBlock(settingsMeta []config.SettingMeta, selectedRow int, settingsValues map[string]interface{}, innerWidth, rows int) string {
+func (m *RootModel) renderSettingsDetailBlock(settingsMeta []config.SettingMeta, selectedRow int, settingsValues map[string]interface{}, innerWidth, rows int) string {
 	if innerWidth < 1 {
 		innerWidth = 1
 	}
@@ -372,7 +372,7 @@ func (m RootModel) renderSettingsDetailBlock(settingsMeta []config.SettingMeta, 
 	return formatSettingsBlock(detail, innerWidth, rows)
 }
 
-func (m RootModel) renderSettingsTwoColumn(settingsMeta []config.SettingMeta, selectedRow int, settingsValues map[string]interface{}, modalWidth, bodyHeight int) string {
+func (m *RootModel) renderSettingsTwoColumn(settingsMeta []config.SettingMeta, selectedRow int, settingsValues map[string]interface{}, modalWidth, bodyHeight int) string {
 	leftWidth, rightWidth := CalculateTwoColumnWidths(modalWidth, 32, 22)
 
 	if leftWidth < 12 || rightWidth < 14 {
@@ -416,7 +416,7 @@ func (m RootModel) renderSettingsTwoColumn(settingsMeta []config.SettingMeta, se
 	return formatSettingsBlock(content, modalWidth-BoxStyle.GetHorizontalFrameSize(), bodyHeight)
 }
 
-func (m RootModel) renderSettingsCompact(settingsMeta []config.SettingMeta, selectedRow int, settingsValues map[string]interface{}, modalWidth, bodyHeight int) string {
+func (m *RootModel) renderSettingsCompact(settingsMeta []config.SettingMeta, selectedRow int, settingsValues map[string]interface{}, modalWidth, bodyHeight int) string {
 	innerWidth := modalWidth - BoxStyle.GetHorizontalFrameSize()
 	if innerWidth < 1 {
 		innerWidth = 1
@@ -512,7 +512,7 @@ func (m *RootModel) updateSettingsInputWidthForViewport() {
 }
 
 // getSettingsValues returns a map of setting key -> value for a category
-func (m RootModel) getSettingsValues(category string) map[string]interface{} {
+func (m *RootModel) getSettingsValues(category string) map[string]interface{} {
 	values := make(map[string]interface{})
 
 	val := reflect.ValueOf(m.Settings).Elem()
@@ -699,7 +699,7 @@ func (m *RootModel) persistSettings() error {
 }
 
 // getCurrentSettingKey returns the key of the currently selected setting
-func (m RootModel) getCurrentSettingKey() string {
+func (m *RootModel) getCurrentSettingKey() string {
 	meta := m.getCurrentSettingMeta()
 	if meta != nil {
 		return meta.Key
@@ -708,7 +708,7 @@ func (m RootModel) getCurrentSettingKey() string {
 }
 
 // getCurrentSettingMeta returns the metadata for the currently selected setting
-func (m RootModel) getCurrentSettingMeta() *config.SettingMeta {
+func (m *RootModel) getCurrentSettingMeta() *config.SettingMeta {
 	categories := config.CategoryOrder()
 	if m.SettingsActiveTab < 0 || m.SettingsActiveTab >= len(categories) {
 		return nil
@@ -724,7 +724,7 @@ func (m RootModel) getCurrentSettingMeta() *config.SettingMeta {
 }
 
 // getCurrentSettingType returns the type of the currently selected setting
-func (m RootModel) getCurrentSettingType() string {
+func (m *RootModel) getCurrentSettingType() string {
 	meta := m.getCurrentSettingMeta()
 	if meta != nil {
 		return meta.Type
@@ -733,7 +733,7 @@ func (m RootModel) getCurrentSettingType() string {
 }
 
 // getSettingsCount returns the number of settings in the current category
-func (m RootModel) getSettingsCount() int {
+func (m *RootModel) getSettingsCount() int {
 	categories := config.CategoryOrder()
 	if m.SettingsActiveTab >= 0 && m.SettingsActiveTab < len(categories) {
 		activeCategory := categories[m.SettingsActiveTab]
@@ -747,7 +747,7 @@ func (m RootModel) getSettingsCount() int {
 }
 
 // getSettingUnit returns the unit suffix for the currently selected setting
-func (m RootModel) getSettingUnit() string {
+func (m *RootModel) getSettingUnit() string {
 	key := m.getCurrentSettingKey()
 	switch key {
 	case "min_chunk_size":

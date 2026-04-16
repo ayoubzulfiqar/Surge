@@ -112,7 +112,7 @@ func (m *RootModel) resetFilepickerToDirMode() {
 }
 
 // checkForDuplicate checks if a compatible download already exists
-func (m RootModel) checkForDuplicate(url string) *processing.DuplicateResult {
+func (m *RootModel) checkForDuplicate(url string) *processing.DuplicateResult {
 	activeDownloads := func() map[string]*types.DownloadConfig {
 		active := make(map[string]*types.DownloadConfig)
 		for _, d := range m.downloads {

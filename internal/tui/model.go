@@ -213,7 +213,7 @@ func NewDownloadModel(id string, url string, filename string, total int64) *Down
 	}
 }
 
-func InitialRootModel(serverPort int, currentVersion string, service core.DownloadService, orchestrator *processing.LifecycleManager, noResume bool) RootModel {
+func InitialRootModel(serverPort int, currentVersion string, service core.DownloadService, orchestrator *processing.LifecycleManager, noResume bool) *RootModel {
 	initialDarkBackground := lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
 
 	// Initialize inputs
@@ -411,12 +411,12 @@ func InitialRootModel(serverPort int, currentVersion string, service core.Downlo
 
 	m.refreshThemeCaches()
 
-	return m
+	return &m
 }
 
 // WithEnqueueContext lets callers bind model-initiated probes to a process-level
 // shutdown context instead of the model's default standalone context.
-func (m RootModel) WithEnqueueContext(ctx context.Context, cancel context.CancelFunc) RootModel {
+func (m *RootModel) WithEnqueueContext(ctx context.Context, cancel context.CancelFunc) *RootModel {
 	if cancel == nil {
 		cancel = func() {}
 	}
@@ -432,7 +432,7 @@ type ViewStats struct {
 	TotalDownloaded int64
 }
 
-func (m RootModel) Init() tea.Cmd {
+func (m *RootModel) Init() tea.Cmd {
 	var cmds []tea.Cmd
 
 	cmds = append(cmds, m.spinner.Tick)
@@ -483,7 +483,7 @@ func (m *RootModel) FindDownloadByID(id string) *DownloadModel {
 }
 
 // Helper to get downloads for the current tab
-func (m RootModel) getFilteredDownloads() []*DownloadModel {
+func (m *RootModel) getFilteredDownloads() []*DownloadModel {
 	var filtered []*DownloadModel
 	searchLower := strings.ToLower(m.searchQuery)
 
@@ -525,7 +525,7 @@ func (m RootModel) getFilteredDownloads() []*DownloadModel {
 	return filtered
 }
 
-func (m RootModel) matchesCategoryFilter(d *DownloadModel) bool {
+func (m *RootModel) matchesCategoryFilter(d *DownloadModel) bool {
 	filter := m.categoryFilter
 	if filter == "" {
 		return true

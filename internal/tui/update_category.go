@@ -89,7 +89,7 @@ func (m *RootModel) updateCategoryInputWidthsForViewport() {
 	}
 }
 
-func (m RootModel) updateCategoryManager(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *RootModel) updateCategoryManager(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	m.normalizeCategoryManagerSelection()
 	cats := m.Settings.Categories.Categories
 

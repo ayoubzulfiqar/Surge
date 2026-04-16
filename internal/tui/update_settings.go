@@ -12,7 +12,7 @@ import (
 
 type extensionTokenFlashFadeMsg struct{}
 
-func (m RootModel) updateSettings(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *RootModel) updateSettings(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	m.normalizeSettingsSelection()
 
 	categories := config.CategoryOrder()

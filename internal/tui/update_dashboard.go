@@ -10,7 +10,7 @@ import (
 	"github.com/SurgeDM/Surge/internal/engine/types"
 )
 
-func (m RootModel) updateDashboard(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+func (m *RootModel) updateDashboard(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 
 	// Handle search input FIRST when active (intercepts ALL keys)
 	if m.searchActive {

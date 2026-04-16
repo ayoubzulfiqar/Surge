@@ -19,7 +19,7 @@ func TestStartDownload_EnforcesAbsolutePath(t *testing.T) {
 	ch := make(chan any, 10)
 	pool := download.NewWorkerPool(ch, 1)
 
-	m := RootModel{
+	m := &RootModel{
 		Settings:  config.DefaultSettings(),
 		Service:   core.NewLocalDownloadServiceWithInput(pool, ch),
 		downloads: []*DownloadModel{},

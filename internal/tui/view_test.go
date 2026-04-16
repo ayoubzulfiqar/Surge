@@ -242,7 +242,7 @@ func TestView_SettingsResizeSequenceKeepsSelectedVisible(t *testing.T) {
 
 	for _, tc := range sequence {
 		updated, _ := m.Update(tea.WindowSizeMsg{Width: tc.width, Height: tc.height})
-		m = updated.(RootModel)
+		m = updated.(*RootModel)
 		m.state = SettingsState
 
 		plain := ansiEscapeRE.ReplaceAllString(m.View().Content, "")
@@ -320,7 +320,7 @@ func TestView_CategoryManagerResizeSequenceKeepsSelectedVisible(t *testing.T) {
 
 	for _, tc := range sequence {
 		updated, _ := m.Update(tea.WindowSizeMsg{Width: tc.width, Height: tc.height})
-		m = updated.(RootModel)
+		m = updated.(*RootModel)
 		m.state = CategoryManagerState
 
 		plain := ansiEscapeRE.ReplaceAllString(m.View().Content, "")
@@ -547,7 +547,7 @@ func TestHelpModal_RendersAndClosesOnEsc(t *testing.T) {
 
 	// Esc should transition back to DashboardState
 	newModel, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
-	updated := newModel.(RootModel)
+	updated := newModel.(*RootModel)
 	if updated.state != DashboardState {
 		t.Errorf("expected DashboardState after esc, got %d", updated.state)
 	}
