@@ -88,7 +88,7 @@ func handleOpenFile(service core.DownloadService) func(http.ResponseWriter, *htt
 			return
 		}
 
-		destPath, err := resolveDownloadDestPath(service, id)
+		destPath, err := resolveDownloadDestPath(r.Context(), service, id)
 		if err != nil {
 			http.Error(w, err.Error(), statusCodeForResolveDownloadError(err))
 			return
@@ -110,7 +110,7 @@ func handleOpenFolder(service core.DownloadService) func(http.ResponseWriter, *h
 			return
 		}
 
-		destPath, err := resolveDownloadDestPath(service, id)
+		destPath, err := resolveDownloadDestPath(r.Context(), service, id)
 		if err != nil {
 			http.Error(w, err.Error(), statusCodeForResolveDownloadError(err))
 			return

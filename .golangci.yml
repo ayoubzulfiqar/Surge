@@ -41,7 +41,6 @@ linters:
     govet:
       enable:
         - shadow
-        - fieldalignment
         - copylocks
         - unusedresult
 

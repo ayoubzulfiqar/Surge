@@ -19,28 +19,37 @@ type ProgressSnapshot struct {
 }
 
 type ProgressState struct {
-	StartTime         time.Time
-	cancelFunc        context.CancelFunc
-	Error             atomic.Pointer[error]
-	DestPath          string
-	Filename          string
-	URL               string
-	ID                string
-	ChunkProgress     []int64
-	ChunkBitmap       []byte
-	Mirrors           []MirrorStatus
-	SavedElapsed      time.Duration
-	VerifiedProgress  atomic.Int64
-	SessionStartBytes int64
+	// Identification
+	ID       string
+	URL      string
+	Filename string
+	DestPath string
+
+	// Status & State
+	Error         atomic.Pointer[error]
+	Mirrors       []MirrorStatus
+	Pausing       atomic.Bool
+	Paused        atomic.Bool
+	Done          atomic.Bool
+	ActiveWorkers atomic.Int32
+
+	// Timing
+	StartTime    time.Time
+	SavedElapsed time.Duration
+	cancelFunc   context.CancelFunc
+
+	// Progress Data
 	TotalSize         int64
 	Downloaded        atomic.Int64
+	VerifiedProgress  atomic.Int64
+	SessionStartBytes int64
 	ActualChunkSize   int64
 	BitmapWidth       int
-	mu                sync.Mutex
-	Pausing           atomic.Bool
-	Paused            atomic.Bool
-	Done              atomic.Bool
-	ActiveWorkers     atomic.Int32
+	ChunkBitmap       []byte
+	ChunkProgress     []int64
+
+	// Concurrency
+	mu sync.Mutex
 }
 
 type MirrorStatus struct {

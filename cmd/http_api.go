@@ -123,19 +123,19 @@ func writeJSONResponse(w http.ResponseWriter, status int, payload interface{}) {
 	}
 }
 
-func resolveDownloadDestPath(service core.DownloadService, id string) (string, error) {
+func resolveDownloadDestPath(ctx context.Context, service core.DownloadService, id string) (string, error) {
 	if service == nil {
 		return "", ErrServiceUnavailable
 	}
 
-	status, err := service.GetStatus(context.Background(), id)
+	status, err := service.GetStatus(ctx, id)
 	if err == nil && status != nil {
 		if destPath := filepath.Clean(status.DestPath); destPath != "" && destPath != "." {
 			return destPath, nil
 		}
 	}
 
-	history, err := service.History(context.Background())
+	history, err := service.History(ctx)
 	if err != nil {
 		return "", fmt.Errorf("failed to read history: %w", err)
 	}

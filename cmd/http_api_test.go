@@ -283,7 +283,7 @@ func TestResolveDownloadDestPath(t *testing.T) {
 				service = test.service
 			}
 
-			gotPath, err := resolveDownloadDestPath(service, test.id)
+			gotPath, err := resolveDownloadDestPath(context.Background(), service, test.id)
 
 			if test.wantErrIs == nil && test.wantErrContain == "" {
 				if err != nil {

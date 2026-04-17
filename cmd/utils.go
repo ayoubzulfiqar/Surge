@@ -153,7 +153,7 @@ func sendToServer(ctx context.Context, url string, mirrors []string, outPath, ba
 
 // GetRemoteDownloads fetches the list of downloads from a remote Surge server
 func GetRemoteDownloads(ctx context.Context, baseURL, token string) ([]types.DownloadStatus, error) {
-	resp, err := doAPIRequest(ctx, http.MethodGet, baseURL, token, "/downloads", nil)
+	resp, err := doAPIRequest(ctx, http.MethodGet, baseURL, token, "/list", nil)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func resolveDownloadID(ctx context.Context, partialID string) (string, error) {
 		remoteDownloads, rdErr := GetRemoteDownloads(ctx, baseURL, token)
 		if rdErr != nil {
 			if strictRemote {
-				return "", fmt.Errorf("failed to list remote downloads: %w", err)
+				return "", fmt.Errorf("failed to list remote downloads: %w", rdErr)
 			}
 		} else {
 			appendCandidateIDs(&candidates, remoteDownloads)
