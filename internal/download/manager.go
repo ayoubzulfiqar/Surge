@@ -193,7 +193,9 @@ func TUIDownload(ctx context.Context, cfg *types.DownloadConfig) error {
 			// Clear any partially written data
 			workingPath := finalDestPath + types.IncompleteSuffix
 			if f, err := os.OpenFile(workingPath, os.O_WRONLY|os.O_TRUNC, 0); err == nil {
-				f.Close()
+				if closeErr := f.Close(); closeErr != nil {
+					utils.Debug("Failed to close truncated working file %s: %v", workingPath, closeErr)
+				}
 			}
 
 			dSingle := single.NewSingleDownloader(cfg.ID, cfg.ProgressCh, cfg.State, cfg.Runtime)
