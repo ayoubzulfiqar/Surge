@@ -144,7 +144,9 @@ func TUIDownload(ctx context.Context, cfg *types.DownloadConfig) error {
 
 	// Choose downloader based on probe results
 	var downloadErr error
-	if cfg.SupportsRange && cfg.TotalSize > 0 {
+	useConcurrent := cfg.SupportsRange && cfg.TotalSize > 0
+
+	if useConcurrent {
 		utils.Debug("Using concurrent downloader")
 
 		// We probe all candidate mirrors (mirrors) to filter out invalid ones
@@ -177,7 +179,16 @@ func TUIDownload(ctx context.Context, cfg *types.DownloadConfig) error {
 		d.Headers = cfg.Headers // Forward custom headers from browser extension
 		utils.Debug("Calling Download with mirrors: %v", mirrors)
 		downloadErr = d.Download(ctx, cfg.URL, mirrors, activeMirrors, finalDestPath, cfg.TotalSize)
-	} else {
+
+		// Determine if we should attempt a fallback to single-threaded mode.
+		// We fallback if concurrent failed, but it wasn't a clean pause or external cancellation.
+		if downloadErr != nil && !errors.Is(downloadErr, types.ErrPaused) && !errors.Is(downloadErr, context.Canceled) {
+			utils.Debug("Concurrent download failed: %v — falling back to single-threaded", downloadErr)
+			useConcurrent = false // Trigger sequential block below
+		}
+	}
+
+	if !useConcurrent {
 		// Fallback to single-threaded downloader
 		utils.Debug("Using single-threaded downloader")
 		d := single.NewSingleDownloader(cfg.ID, cfg.ProgressCh, cfg.State, cfg.Runtime)
