@@ -178,6 +178,8 @@ func TestTUIDownload_ContextCanceled_AbortsFallback(t *testing.T) {
 	cfg := &types.DownloadConfig{
 		ID:            "test-cancel",
 		URL:           server.URL,
+		OutputPath:    tmpDir,
+		Filename:      "file.txt",
 		DestPath:      outPath,
 		TotalSize:     5,
 		SupportsRange: true,
@@ -191,7 +193,7 @@ func TestTUIDownload_ContextCanceled_AbortsFallback(t *testing.T) {
 	cancel()
 
 	err = TUIDownload(ctx, cfg)
-	if err == nil || !strings.Contains(err.Error(), "context canceled") {
-		t.Fatalf("expected context canceled error, got: %v", err)
+	if err != nil {
+		t.Fatalf("expected nil (clean cancellation), got: %v", err)
 	}
 }
