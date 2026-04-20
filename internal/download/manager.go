@@ -180,7 +180,7 @@ func TUIDownload(ctx context.Context, cfg *types.DownloadConfig) error {
 
 		if downloadErr != nil && !errors.Is(downloadErr, context.Canceled) && !errors.Is(downloadErr, types.ErrPaused) {
 			utils.Debug("Concurrent download failed: %v. Falling back to single-threaded downloader", downloadErr)
-			
+
 			// Reset state before fallback
 			if cfg.State != nil {
 				cfg.State.ChunkBitmap = nil
@@ -189,13 +189,13 @@ func TUIDownload(ctx context.Context, cfg *types.DownloadConfig) error {
 				cfg.State.VerifiedProgress.Store(0)
 				cfg.State.ActiveWorkers.Store(0)
 			}
-			
+
 			// Clear any partially written data
 			workingPath := finalDestPath + types.IncompleteSuffix
 			if f, err := os.OpenFile(workingPath, os.O_WRONLY|os.O_TRUNC, 0); err == nil {
 				f.Close()
 			}
-			
+
 			dSingle := single.NewSingleDownloader(cfg.ID, cfg.ProgressCh, cfg.State, cfg.Runtime)
 			dSingle.Headers = cfg.Headers
 			downloadErr = dSingle.Download(ctx, cfg.URL, finalDestPath, cfg.TotalSize, finalFilename)

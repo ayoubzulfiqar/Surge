@@ -505,6 +505,8 @@ func (d *ConcurrentDownloader) Download(ctx context.Context, rawurl string, cand
 			defer wg.Done()
 			err := d.worker(downloadCtx, workerID, workerMirrors, outFile, queue, fileSize, client)
 			if err != nil && err != context.Canceled {
+				// Cancel ALL workers and helpers on first terminal error
+				cancel()
 				workerErrors <- err
 			}
 		}(i)

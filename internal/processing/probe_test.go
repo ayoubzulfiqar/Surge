@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -122,5 +123,52 @@ func TestProbeServer_ReadsBodyBeforeContextCancel(t *testing.T) {
 	}
 	if result.Filename != "delayed.txt" {
 		t.Errorf("Expected filename 'delayed.txt', got %q. The context might have been prematurely canceled.", result.Filename)
+	}
+}
+
+func TestProbeServer_RangedProbeRetryLogic(t *testing.T) {
+	var attempts atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts.Add(1)
+		if r.Header.Get("Range") != "" {
+			// Simulate origin rejecting ranged probe
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+		// Second attempt (without Range) should succeed
+		w.Header().Set("Content-Length", "100")
+		w.WriteHeader(http.StatusOK)
+		w.Write(make([]byte, 100))
+	}))
+	defer server.Close()
+
+	result, err := processing.ProbeServerWithProxy(context.Background(), server.URL, "", nil, nil)
+	if err != nil {
+		t.Fatalf("ProbeServerWithProxy() failed: %v", err)
+	}
+
+	if attempts.Load() != 2 {
+		t.Errorf("Expected 2 attempts, got %d", attempts.Load())
+	}
+	if result.SupportsRange {
+		t.Error("Expected SupportsRange to be false after retry without Range")
+	}
+	if result.FileSize != 100 {
+		t.Errorf("Expected FileSize 100, got %d", result.FileSize)
+	}
+}
+
+func TestProbeServer_HandlesServerErrors(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	_, err := processing.ProbeServerWithProxy(context.Background(), server.URL, "", nil, nil)
+	if err == nil {
+		t.Fatal("Expected error for 500 status code, got nil")
+	}
+	if !strings.Contains(err.Error(), "unexpected status code: 500") {
+		t.Errorf("Expected error to contain 'unexpected status code: 500', got: %v", err)
 	}
 }

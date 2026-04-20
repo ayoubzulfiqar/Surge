@@ -404,7 +404,7 @@ func TestHandleDownload_EnqueueError_RecordsPreflightError(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatal("expected errored download entry in master list after probe failure via HTTP API")
+		t.Fatal("expected errored download entry in master list after enqueue failure via HTTP API")
 	}
 }
 
