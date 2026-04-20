@@ -429,6 +429,9 @@ func (m RootModel) WithEnqueueContext(ctx context.Context, cancel context.Cancel
 		ctx = context.Background()
 	}
 	if cancel == nil {
+		// Provide a no-op fallback to prevent nil pointer dereference if the caller
+		// doesn't provide a cancel function, ensuring the model can safely
+		// invoke it during shutdown or abort sequences.
 		cancel = func() {}
 	}
 	m.enqueueCtx = ctx
