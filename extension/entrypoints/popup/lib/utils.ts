@@ -86,7 +86,7 @@ export function extractFilename(url: string): string {
 
 export function normalizeToken(token: string | undefined): string {
   if (!token) return '';
-  return token.replace(/\s+/g, '');
+  return token.replaceAll(/\s+/g, '');
 }
 
 export function normalizeServerUrl(url: string): string {

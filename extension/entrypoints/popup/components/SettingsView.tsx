@@ -105,10 +105,11 @@ export default function SettingsView() {
   return (
     <div>
       <div class="settings-group">
-        <label class="toggle-row">
+        <label class="toggle-row" for="intercept-toggle">
           <span>Intercept Downloads</span>
           <div class="toggle">
             <input
+              id="intercept-toggle"
               type="checkbox"
               checked={interceptEnabled()}
               onChange={(e) => { void handleInterceptToggle((e.target as HTMLInputElement).checked); }}
@@ -116,10 +117,11 @@ export default function SettingsView() {
             <span class="toggle-slider" />
           </div>
         </label>
-        <label class="toggle-row">
+        <label class="toggle-row" for="notifications-toggle">
           <span>Show Notifications</span>
           <div class="toggle">
             <input
+              id="notifications-toggle"
               type="checkbox"
               checked={notificationsEnabled()}
               onChange={(e) => { void handleNotificationsToggle((e.target as HTMLInputElement).checked); }}

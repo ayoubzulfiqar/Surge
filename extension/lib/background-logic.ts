@@ -8,7 +8,7 @@ export interface PendingDup {
 export function extractPathInfo(downloadItem: { filename?: string }): { filename: string; directory: string } {
   if (!downloadItem.filename) return { filename: '', directory: '' };
 
-  const normalized = downloadItem.filename.replace(/\\/g, '/');
+  const normalized = downloadItem.filename.replaceAll(/\\/g, '/');
   const parts = normalized.split('/');
   const filename = parts.pop() || '';
 

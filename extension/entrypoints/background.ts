@@ -141,8 +141,8 @@ async function rehydratePendingDuplicates(): Promise<void> {
       const freshEntries = filterPendingDuplicates(entries);
       for (const [id, data] of freshEntries) {
         pendingDuplicates.set(id, data);
-        const num = parseInt(id.replace('dup_', ''), 10);
-        if (!isNaN(num) && num > pendingDuplicateCounter) pendingDuplicateCounter = num;
+        const num = Number.parseInt(id.replace('dup_', ''), 10);
+        if (!Number.isNaN(num) && num > pendingDuplicateCounter) pendingDuplicateCounter = num;
       }
       if (freshEntries.length !== entries.length) await persistPendingDuplicates();
       updateBadge();
