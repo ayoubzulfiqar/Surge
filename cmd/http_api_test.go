@@ -18,16 +18,20 @@ import (
 )
 
 type httpAPITestService struct {
-	history           []types.DownloadEntry
-	historyErr        error
-	statusByID        map[string]*types.DownloadStatus
-	getStatusErr      error
-	streamMsgs        []interface{}
-	rateLimitCalls    []string
-	rateLimitValues   map[string]int64
-	clearRateLimitID  []string
-	setRateLimitErr   error
-	clearRateLimitErr error
+	history               []types.DownloadEntry
+	historyErr            error
+	statusByID            map[string]*types.DownloadStatus
+	getStatusErr          error
+	streamMsgs            []interface{}
+	rateLimitCalls        []string
+	rateLimitValues       map[string]int64
+	clearRateLimitID      []string
+	setRateLimitErr       error
+	clearRateLimitErr     error
+	clearCompletedReturns int64
+	clearFailedReturns    int64
+	clearCompletedErr     error
+	clearFailedErr        error
 }
 
 func newRateLimitTestService() *httpAPITestService {
@@ -133,6 +137,20 @@ func (s *httpAPITestService) GetStatus(id string) (*types.DownloadStatus, error)
 
 func (s *httpAPITestService) Shutdown() error {
 	return nil
+}
+
+func (s *httpAPITestService) ClearCompleted() (int64, error) {
+	if s.clearCompletedErr != nil {
+		return 0, s.clearCompletedErr
+	}
+	return s.clearCompletedReturns, nil
+}
+
+func (s *httpAPITestService) ClearFailed() (int64, error) {
+	if s.clearFailedErr != nil {
+		return 0, s.clearFailedErr
+	}
+	return s.clearFailedReturns, nil
 }
 
 func (s *httpAPITestService) SetRateLimit(id string, rate int64) error {
@@ -833,22 +851,22 @@ func (r *rateLimitWrapper) Add(string, string, string, []string, map[string]stri
 func (r *rateLimitWrapper) AddWithID(string, string, string, []string, map[string]string, string, int64, bool) (string, error) {
 	return "", nil
 }
-func (r *rateLimitWrapper) Pause(string) error             { return nil }
-func (r *rateLimitWrapper) Resume(string) error            { return nil }
-func (r *rateLimitWrapper) ResumeBatch([]string) []error   { return nil }
-func (r *rateLimitWrapper) UpdateURL(string, string) error { return nil }
-func (r *rateLimitWrapper) Delete(string) error            { return nil }
+func (r *rateLimitWrapper) Pause(string) error                              { return nil }
+func (r *rateLimitWrapper) Resume(string) error                             { return nil }
+func (r *rateLimitWrapper) ResumeBatch([]string) []error                    { return nil }
+func (r *rateLimitWrapper) UpdateURL(string, string) error                  { return nil }
+func (r *rateLimitWrapper) Delete(string) error                             { return nil }
+func (r *rateLimitWrapper) Purge(string) error                              { return nil }
+func (r *rateLimitWrapper) Publish(interface{}) error                       { return nil }
+func (r *rateLimitWrapper) GetStatus(string) (*types.DownloadStatus, error) { return nil, nil }
+func (r *rateLimitWrapper) Shutdown() error                                 { return nil }
+func (r *rateLimitWrapper) ClearCompleted() (int64, error)                  { return 0, nil }
+func (r *rateLimitWrapper) ClearFailed() (int64, error)                     { return 0, nil }
+func (r *rateLimitWrapper) SetRateLimit(string, int64) error                { return nil }
+func (r *rateLimitWrapper) ClearRateLimit(string) error                     { return nil }
 func (r *rateLimitWrapper) StreamEvents(context.Context) (<-chan interface{}, func(), error) {
 	return make(chan interface{}), func() {}, nil
 }
-func (r *rateLimitWrapper) Publish(interface{}) error { return nil }
-func (r *rateLimitWrapper) GetStatus(id string) (*types.DownloadStatus, error) {
-	return nil, errors.New("not found")
-}
-func (r *rateLimitWrapper) Purge(id string) error                    { return nil }
-func (r *rateLimitWrapper) Shutdown() error                          { return nil }
-func (r *rateLimitWrapper) SetRateLimit(id string, rate int64) error { return nil }
-func (r *rateLimitWrapper) ClearRateLimit(id string) error           { return nil }
 
 // TestRateLimitDefaultEndpoint tests the /rate-limit/default endpoint.
 func TestRateLimitDefaultEndpoint(t *testing.T) {
@@ -879,5 +897,119 @@ func TestRateLimitDefaultEndpoint(t *testing.T) {
 	}
 	if got := svc.rateLimitValues["__default__"]; got != 2097152 {
 		t.Fatalf("default rate = %d, want %d", got, 2097152)
+	}
+}
+
+func TestClearCompletedEndpoint(t *testing.T) {
+	tests := []struct {
+		name         string
+		method       string
+		svcErr       error
+		svcReturns   int64
+		wantCode     int
+		wantResponse string
+	}{
+		{
+			name:     "requires POST method",
+			method:   http.MethodGet,
+			wantCode: http.StatusMethodNotAllowed,
+		},
+		{
+			name:         "success",
+			method:       http.MethodPost,
+			svcReturns:   5,
+			wantCode:     http.StatusOK,
+			wantResponse: `{"deleted":5}`,
+		},
+		{
+			name:         "service error",
+			method:       http.MethodPost,
+			svcErr:       errors.New("db error"),
+			wantCode:     http.StatusInternalServerError,
+			wantResponse: "db error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &httpAPITestService{
+				clearCompletedReturns: tt.svcReturns,
+				clearCompletedErr:     tt.svcErr,
+			}
+			mux := http.NewServeMux()
+			registerHTTPRoutes(mux, 0, "", svc)
+
+			req := httptest.NewRequest(tt.method, "/clear-completed", nil)
+			req.RemoteAddr = "127.0.0.1:12345"
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantCode {
+				t.Fatalf("expected status %d, got %d: %s", tt.wantCode, rec.Code, rec.Body.String())
+			}
+
+			if tt.wantResponse != "" {
+				if !strings.Contains(rec.Body.String(), tt.wantResponse) {
+					t.Fatalf("expected response to contain %q, got %q", tt.wantResponse, rec.Body.String())
+				}
+			}
+		})
+	}
+}
+
+func TestClearFailedEndpoint(t *testing.T) {
+	tests := []struct {
+		name         string
+		method       string
+		svcErr       error
+		svcReturns   int64
+		wantCode     int
+		wantResponse string
+	}{
+		{
+			name:     "requires POST method",
+			method:   http.MethodGet,
+			wantCode: http.StatusMethodNotAllowed,
+		},
+		{
+			name:         "success",
+			method:       http.MethodPost,
+			svcReturns:   2,
+			wantCode:     http.StatusOK,
+			wantResponse: `{"deleted":2}`,
+		},
+		{
+			name:         "service error",
+			method:       http.MethodPost,
+			svcErr:       errors.New("db fail error"),
+			wantCode:     http.StatusInternalServerError,
+			wantResponse: "db fail error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &httpAPITestService{
+				clearFailedReturns: tt.svcReturns,
+				clearFailedErr:     tt.svcErr,
+			}
+			mux := http.NewServeMux()
+			registerHTTPRoutes(mux, 0, "", svc)
+
+			req := httptest.NewRequest(tt.method, "/clear-failed", nil)
+			req.RemoteAddr = "127.0.0.1:12345"
+			rec := httptest.NewRecorder()
+			mux.ServeHTTP(rec, req)
+
+			if rec.Code != tt.wantCode {
+				t.Fatalf("expected status %d, got %d: %s", tt.wantCode, rec.Code, rec.Body.String())
+			}
+
+			if tt.wantResponse != "" {
+				if !strings.Contains(rec.Body.String(), tt.wantResponse) {
+					t.Fatalf("expected response to contain %q, got %q", tt.wantResponse, rec.Body.String())
+				}
+			}
+		})
 	}
 }
