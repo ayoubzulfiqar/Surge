@@ -33,7 +33,6 @@ func (i DownloadItem) Description() string {
 	// Get styled status using the shared component
 	var styledStatus string
 	if d.pausing {
-		// Custom "Pausing..." style using existing colors
 		styledStatus = lipgloss.NewStyle().Foreground(colors.StatePaused()).Render(i.spinnerView + " Pausing...")
 	} else if d.resuming {
 		styledStatus = lipgloss.NewStyle().Foreground(colors.StateDownloading()).Render(i.spinnerView + " Resuming...")
